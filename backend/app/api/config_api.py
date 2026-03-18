@@ -144,6 +144,7 @@ class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     body: str
+    headers: Optional[dict] = None   # HTTP headers sent with the rendered webhook POST
 
 
 @router.get("/templates")
@@ -151,7 +152,12 @@ async def list_templates():
     config = load_runtime_config()
     templates = config.get("webhook_templates", {})
     return [
-        {"name": name, "description": t.get("description", ""), "body": t.get("body", "")}
+        {
+            "name": name,
+            "description": t.get("description", ""),
+            "body": t.get("body", ""),
+            "headers": t.get("headers") or {},
+        }
         for name, t in templates.items()
     ]
 
@@ -162,7 +168,11 @@ async def create_template(template: TemplateCreate):
     templates = config.setdefault("webhook_templates", {})
     if template.name in templates:
         raise HTTPException(status_code=409, detail=f"Template '{template.name}' already exists")
-    templates[template.name] = {"description": template.description, "body": template.body}
+    templates[template.name] = {
+        "description": template.description,
+        "body": template.body,
+        "headers": template.headers or {},
+    }
     save_runtime_config(config)
     return {"status": "created", "name": template.name}
 
@@ -173,7 +183,11 @@ async def update_template(name: str, template: TemplateCreate):
     templates = config.setdefault("webhook_templates", {})
     if name not in templates:
         raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
-    templates[name] = {"description": template.description, "body": template.body}
+    templates[name] = {
+        "description": template.description,
+        "body": template.body,
+        "headers": template.headers or {},
+    }
     save_runtime_config(config)
     return {"status": "updated", "name": name}
 

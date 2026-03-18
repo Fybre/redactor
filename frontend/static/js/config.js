@@ -268,6 +268,7 @@ function openNewTemplate() {
   document.getElementById('tmpl-name').value = '';
   document.getElementById('tmpl-name').disabled = false;
   document.getElementById('tmpl-desc').value = '';
+  document.getElementById('tmpl-headers').value = '';
   document.getElementById('tmpl-body').value = '';
   document.getElementById('template-modal').classList.add('open');
 }
@@ -282,6 +283,7 @@ async function editTemplate(name) {
     document.getElementById('tmpl-name').value = name;
     document.getElementById('tmpl-name').disabled = true;
     document.getElementById('tmpl-desc').value = t.description || '';
+    document.getElementById('tmpl-headers').value = t.headers && Object.keys(t.headers).length ? JSON.stringify(t.headers, null, 2) : '';
     document.getElementById('tmpl-body').value = t.body || '';
     document.getElementById('template-modal').classList.add('open');
   } catch {}
@@ -296,10 +298,18 @@ async function saveTemplate() {
   const name = document.getElementById('tmpl-name').value.trim();
   const desc = document.getElementById('tmpl-desc').value.trim();
   const body = document.getElementById('tmpl-body').value.trim();
+  const headersRaw = document.getElementById('tmpl-headers').value.trim();
   if (!name) { showToast('Template name is required', 'error'); return; }
   if (!body) { showToast('Template body is required', 'error'); return; }
 
-  const payload = { name, description: desc, body };
+  let headers = null;
+  if (headersRaw) {
+    try { headers = JSON.parse(headersRaw); } catch {
+      showToast('Headers must be a valid JSON object', 'error'); return;
+    }
+  }
+
+  const payload = { name, description: desc, body, headers };
   try {
     if (editingTemplate) {
       await api.put(`/config/templates/${editingTemplate}`, payload);

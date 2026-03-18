@@ -256,6 +256,11 @@
         <input type="text" id="tmpl-desc" placeholder="Optional description">
       </div>
       <div class="form-group">
+        <label>HTTP Headers <span style="font-weight:400;color:var(--muted)">(optional — sent with every POST using this template)</span></label>
+        <textarea id="tmpl-headers" rows="4" style="font-family:monospace;font-size:12px;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical" placeholder='{"Authorization":"Basic dXNlcjpwYXNz","TenantName":"acme","Content-Type":"application/json"}'></textarea>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">JSON object. Store credentials here so Therefore does not need to send them per-request.</div>
+      </div>
+      <div class="form-group">
         <label>Template Body (Jinja2) *</label>
         <textarea id="tmpl-body" rows="20" style="font-family:monospace;font-size:12px;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical" placeholder='{ "event": "{{ status }}", "file": "{{ filename }}", ... }'></textarea>
       </div>

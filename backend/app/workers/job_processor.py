@@ -111,12 +111,16 @@ async def _process_job(job_id: str) -> None:
                     job = await session.get(Job, job_id)
 
                     raw_body = None
+                    template_headers = None
                     if job.webhook_template:
                         try:
                             from app.config import load_runtime_config
                             tmpl = load_runtime_config().get("webhook_templates", {}).get(job.webhook_template, {})
                             if tmpl.get("body"):
                                 raw_body = render_webhook_template(tmpl["body"], job)
+                            # Template headers (e.g. Therefore auth) override per-job headers
+                            if tmpl.get("headers"):
+                                template_headers = {**(job.webhook_headers or {}), **tmpl["headers"]}
                         except Exception as te:
                             logger.error(f"Job {job_id}: template render failed: {te}")
 
@@ -124,7 +128,7 @@ async def _process_job(job_id: str) -> None:
                         job.webhook_url,
                         build_job_payload(job),
                         secret=job.webhook_secret,
-                        extra_headers=job.webhook_headers,
+                        extra_headers=template_headers or job.webhook_headers,
                         raw_body=raw_body,
                     )
                     job.webhook_sent = success
