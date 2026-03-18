@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from app.core.redaction_levels import ENTITY_DESCRIPTIONS, LEVEL_DESCRIPTIONS
 from app.models.schemas import SystemConfig, ProfileCreate, WebhookConfig
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=SystemConfig)
@@ -183,12 +185,17 @@ async def update_template(name: str, template: TemplateCreate):
     templates = config.setdefault("webhook_templates", {})
     if name not in templates:
         raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
-    templates[name] = {
+    entry = {
         "description": template.description,
         "body": template.body,
         "headers": template.headers or {},
     }
+    logger.info(f"Saving template '{name}' headers: {list(entry['headers'].keys())}")
+    templates[name] = entry
     save_runtime_config(config)
+    # Verify immediately
+    verify = load_runtime_config().get("webhook_templates", {}).get(name, {})
+    logger.info(f"Verified template '{name}' headers after save: {list(verify.get('headers', {}).keys())}")
     return {"status": "updated", "name": name}
 
 
