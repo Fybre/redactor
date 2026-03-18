@@ -194,6 +194,23 @@ async def update_template(name: str, template: TemplateCreate):
     return {"status": "updated", "name": name}
 
 
+@router.post("/templates/{name}/duplicate")
+async def duplicate_template(name: str):
+    config = load_runtime_config()
+    templates = config.setdefault("webhook_templates", {})
+    if name not in templates:
+        raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
+    base = f"{name}_copy"
+    new_name = base
+    n = 2
+    while new_name in templates:
+        new_name = f"{base}_{n}"
+        n += 1
+    templates[new_name] = dict(templates[name])
+    save_runtime_config(config)
+    return {"status": "duplicated", "name": new_name}
+
+
 @router.delete("/templates/{name}")
 async def delete_template(name: str):
     config = load_runtime_config()

@@ -256,6 +256,7 @@ function renderTemplates(templates) {
         <td>
           <div style="display:flex;gap:6px">
             <button onclick="editTemplate('${t.name}')" class="btn btn-ghost btn-sm">Edit</button>
+            <button onclick="duplicateTemplate('${t.name}')" class="btn btn-ghost btn-sm">Duplicate</button>
             <button onclick="deleteTemplate('${t.name}')" class="btn btn-danger btn-sm">Delete</button>
           </div>
         </td>
@@ -319,6 +320,14 @@ async function saveTemplate() {
       showToast('Template created', 'success');
     }
     closeTemplateModal();
+    loadTemplates();
+  } catch {}
+}
+
+async function duplicateTemplate(name) {
+  try {
+    const res = await api.post(`/config/templates/${name}/duplicate`, {});
+    showToast(`Duplicated as "${res.name}"`, 'success');
     loadTemplates();
   } catch {}
 }
