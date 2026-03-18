@@ -1,3 +1,4 @@
+import json as _json
 import os
 import uuid
 from pathlib import Path
@@ -25,58 +26,89 @@ def _validate_file(filename: str, size: int) -> None:
         raise HTTPException(status_code=413, detail=f"File too large (max {max_bytes // (1024*1024)}MB)")
 
 
+def _parse_json_field(value: Optional[str], field_name: str, expect_type: type):
+    """Parse a JSON string form field, raising HTTP 400 on failure."""
+    if not value:
+        return None
+    try:
+        parsed = _json.loads(value)
+        if not isinstance(parsed, expect_type):
+            raise ValueError
+        return parsed
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"{field_name} must be a valid JSON {expect_type.__name__}")
+
+
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    level: str = Form("standard"),
+    # Therefore-compatible metadata envelope: all params can be sent as a single
+    # JSON object in the "metadata" multipart part (Therefore's Body tab) instead
+    # of individual form fields. Individual fields take precedence if both supplied.
+    metadata: Optional[str] = Form(None),
+    level: Optional[str] = Form(None),
     custom_entities: Optional[str] = Form(None),   # JSON array as string
     profile_name: Optional[str] = Form(None),
-    output_mode: str = Form("directory"),
+    output_mode: Optional[str] = Form(None),
     webhook_url: Optional[str] = Form(None),
     webhook_headers: Optional[str] = Form(None),      # JSON object: {"Header": "value", ...}
     webhook_secret: Optional[str] = Form(None),       # HMAC-SHA256 signing secret
-    webhook_include_file: bool = Form(False),          # embed base64 file in payload
-    webhook_template: Optional[str] = Form(None),      # named Jinja2 payload template
-    webhook_extra: Optional[str] = Form(None),         # JSON object — extra vars merged into template context
+    webhook_include_file: Optional[str] = Form(None), # "true"/"false" string to support JSON metadata
+    webhook_template: Optional[str] = Form(None),     # named Jinja2 payload template
+    webhook_extra: Optional[str] = Form(None),        # JSON object — extra vars merged into template context
     db: AsyncSession = Depends(get_db),
 ):
-    # Validate level
+    # ── Merge metadata envelope (Therefore Body tab sends everything as one JSON part)
+    meta = {}
+    if metadata:
+        meta = _parse_json_field(metadata, "metadata", dict) or {}
+
+    def _get(field_value, key, default=None):
+        """Return explicit form field if provided, else fall back to metadata envelope."""
+        if field_value is not None:
+            return field_value
+        return meta.get(key, default)
+
+    level           = _get(level,           "level",           "standard")
+    custom_entities = _get(custom_entities, "custom_entities")
+    profile_name    = _get(profile_name,    "profile_name")
+    output_mode     = _get(output_mode,     "output_mode",     "directory")
+    webhook_url     = _get(webhook_url,     "webhook_url")
+    webhook_secret  = _get(webhook_secret,  "webhook_secret")
+    webhook_template= _get(webhook_template,"webhook_template")
+
+    # webhook_include_file arrives as a string in both paths; normalise to bool
+    _wif_raw        = _get(webhook_include_file, "webhook_include_file", "false")
+    webhook_include_file_bool = str(_wif_raw).lower() in ("true", "1", "yes")
+
+    # webhook_headers — may already be a dict (from metadata envelope) or a JSON string
+    _wh_raw         = _get(webhook_headers, "webhook_headers")
+    if isinstance(_wh_raw, dict):
+        parsed_webhook_headers = _wh_raw
+    else:
+        parsed_webhook_headers = _parse_json_field(_wh_raw, "webhook_headers", dict)
+
+    # webhook_extra — same treatment
+    _we_raw         = _get(webhook_extra, "webhook_extra")
+    if isinstance(_we_raw, dict):
+        parsed_webhook_extra = _we_raw
+    else:
+        parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
+
+    # ── Validate level
     valid_levels = {e.value for e in RedactionLevel}
     if level not in valid_levels:
         raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(valid_levels)}")
 
-    # Parse webhook extra template vars
-    parsed_webhook_extra = None
-    if webhook_extra:
-        import json as _json
-        try:
-            parsed_webhook_extra = _json.loads(webhook_extra)
-            if not isinstance(parsed_webhook_extra, dict):
-                raise ValueError
-        except Exception:
-            raise HTTPException(status_code=400, detail="webhook_extra must be a valid JSON object")
-
-    # Parse webhook headers
-    parsed_webhook_headers = None
-    if webhook_headers:
-        import json as _json
-        try:
-            parsed_webhook_headers = _json.loads(webhook_headers)
-            if not isinstance(parsed_webhook_headers, dict):
-                raise ValueError
-        except Exception:
-            raise HTTPException(status_code=400, detail="webhook_headers must be a valid JSON object")
-
-    # Parse custom entities
+    # ── Parse custom entities
     parsed_entities = None
     if level == "custom" or custom_entities:
-        import json as _json
-        try:
-            parsed_entities = _json.loads(custom_entities) if custom_entities else []
-        except Exception:
-            raise HTTPException(status_code=400, detail="custom_entities must be a valid JSON array")
+        if isinstance(custom_entities, list):
+            parsed_entities = custom_entities
+        else:
+            parsed_entities = _parse_json_field(custom_entities, "custom_entities", list) or []
 
-    # If a profile name is provided, load its entities
+    # ── If a profile name is provided, load its entities
     if profile_name:
         from app.config import load_runtime_config
         config = load_runtime_config()
@@ -117,7 +149,7 @@ async def upload_document(
         webhook_url=webhook_url if output_mode == "webhook" else None,
         webhook_headers=parsed_webhook_headers if output_mode == "webhook" else None,
         webhook_secret=webhook_secret if output_mode == "webhook" else None,
-        webhook_include_file=webhook_include_file if output_mode == "webhook" else False,
+        webhook_include_file=webhook_include_file_bool if output_mode == "webhook" else False,
         webhook_template=webhook_template if output_mode == "webhook" else None,
         webhook_extra=parsed_webhook_extra if output_mode == "webhook" else None,
         input_path=temp_path,
