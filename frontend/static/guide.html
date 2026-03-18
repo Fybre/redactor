@@ -259,6 +259,7 @@
           <a href="#jobs">Managing Jobs</a>
           <a href="#profiles">Custom Profiles</a>
           <a href="#webhooks">Webhooks</a>
+          <a href="#templates">Webhook Templates</a>
           <a href="#rest-api">REST API</a>
           <a href="#configuration">Configuration</a>
           <a href="#therefore">Therefore Integration</a>
@@ -268,105 +269,67 @@
         <!-- Main content -->
         <div class="guide-body">
 
-          <!-- Overview -->
           <section id="overview">
             <h2>📄 Overview</h2>
-            <p>
-              Redactor is a self-hosted service that automatically detects and removes personally identifiable
-              information (PII) from PDF documents and images. It supports two ways to submit documents
-              (REST API upload or folder polling) and two ways to receive results (saved to an output
-              directory or delivered via webhook).
-            </p>
-            <p>Redaction is performed at two levels simultaneously:</p>
-            <ul>
-              <li><strong>Visual</strong> — PII is covered with solid black boxes in the rendered document</li>
-              <li><strong>Text layer</strong> — for text-based PDFs, the underlying text is permanently removed from the PDF content stream so it cannot be extracted by copy/paste or PDF analysis tools</li>
-            </ul>
-            <div class="callout callout-info">
-              <span class="callout-icon">ℹ️</span>
-              <div>Scanned documents and images are redacted visually using OCR to locate PII. The text layer of scanned PDFs is replaced with the redacted image, so no recoverable text remains.</div>
-            </div>
+            <p>Redactor is a self-hosted service that automatically detects and permanently removes personally identifiable information (PII) from documents. It supports PDFs (both text-based and scanned), PNG, JPG, and TIFF images.</p>
+            <p>Documents can be submitted via the web UI, the REST API, or by dropping files into a watched input folder. The redacted output can be saved to a directory or delivered to any HTTP endpoint via a signed webhook — including directly to third-party document management systems like Therefore.</p>
+
+            <h3>Detection engine</h3>
+            <p>Redactor uses <strong>pattern matching and statistical NLP</strong> — not a generative AI model. There is no external API, no internet dependency, and no data leaves your server.</p>
+            <table class="level-table">
+              <thead><tr><th>Component</th><th>Role</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Microsoft Presidio</strong></td><td>Orchestration layer; runs recognisers and returns entity spans</td></tr>
+                <tr><td><strong>spaCy <code>en_core_web_lg</code></strong></td><td>Named Entity Recognition for persons, organisations, locations — a statistical ML classifier trained on annotated text (not generative AI)</td></tr>
+                <tr><td><strong>Presidio regex recognisers</strong></td><td>Structured identifiers: credit cards, SSNs, IBANs, phone numbers, emails, passports, and regional ID types</td></tr>
+                <tr><td><strong>Tesseract OCR</strong></td><td>Extracts text from scanned pages — pure computer vision</td></tr>
+                <tr><td><strong>PyMuPDF</strong></td><td>Text extraction and PDF manipulation</td></tr>
+              </tbody>
+            </table>
+            <p>Detection is fast and deterministic. It can miss PII that doesn't match known patterns, and may occasionally produce false positives on ambiguous text.</p>
           </section>
 
-          <!-- Quick Start -->
           <section id="quick-start">
             <h2>🚀 Quick Start</h2>
 
             <h3>Uploading your first document</h3>
             <div class="steps">
-              <div class="step">
-                <div class="step-num">1</div>
-                <div class="step-content">
-                  <strong>Go to the Upload page</strong>
-                  <p>Click <strong>Upload</strong> in the sidebar, or use the <strong>+ Upload Document</strong> button on the dashboard.</p>
-                </div>
-              </div>
-              <div class="step">
-                <div class="step-num">2</div>
-                <div class="step-content">
-                  <strong>Select a file</strong>
-                  <p>Drag and drop a PDF, PNG, JPG, or TIFF file onto the drop zone, or click it to browse. Multiple files can be queued at once.</p>
-                </div>
-              </div>
-              <div class="step">
-                <div class="step-num">3</div>
-                <div class="step-content">
-                  <strong>Choose a redaction level</strong>
-                  <p><strong>Standard</strong> is recommended for most use cases — it covers names, emails, phone numbers, and financial identifiers. See the Redaction Levels section below for the full breakdown.</p>
-                </div>
-              </div>
-              <div class="step">
-                <div class="step-num">4</div>
-                <div class="step-content">
-                  <strong>Submit</strong>
-                  <p>Click <strong>Submit for Redaction</strong>. The job is queued immediately and processing begins within seconds.</p>
-                </div>
-              </div>
-              <div class="step">
-                <div class="step-num">5</div>
-                <div class="step-content">
-                  <strong>Download the result</strong>
-                  <p>From the dashboard or job detail page, click <strong>Download Redacted</strong> once the job status shows <span class="badge badge-completed">completed</span>.</p>
-                </div>
-              </div>
+              <div class="step"><div class="step-num"></div><div class="step-content"><strong>Go to the Upload page</strong><p>Click Upload in the sidebar. Select your file and choose a redaction level. Standard is recommended for most use cases.</p></div></div>
+              <div class="step"><div class="step-num"></div><div class="step-content"><strong>Submit the job</strong><p>Click Redact Document. The job appears on the Dashboard immediately.</p></div></div>
+              <div class="step"><div class="step-num"></div><div class="step-content"><strong>View or download the result</strong><p>When the job shows Completed, click the 👁 button to open the redacted file inline in the browser, or the ⬇ button to download it.</p></div></div>
             </div>
+
+            <h3>Redaction levels</h3>
+            <p><strong>Standard</strong> covers names, emails, phone numbers, and financial identifiers — the right choice for most general-purpose redaction. See the Redaction Levels section for the full breakdown of what each level includes.</p>
           </section>
 
-          <!-- How it works -->
           <section id="how-it-works">
             <h2>⚙️ How It Works</h2>
 
             <h3>Text-based PDFs</h3>
-            <p>For PDFs created digitally (not scanned), Redactor uses PyMuPDF to extract the text layer with precise bounding boxes for every word. Presidio NLP analysis runs on the full page text to identify PII spans. Each detected span is mapped back to its word bounding boxes and a <em>redact annotation</em> is applied.</p>
-            <p>PyMuPDF's <code>apply_redactions()</code> then permanently removes the characters from the PDF content stream — the black box you see is not just painted on top, the text underneath is gone. Saving with garbage collection removes all orphaned objects from the file.</p>
+            <p>For PDFs that contain a real text layer (digitally created, not scanned), Redactor extracts words with exact bounding boxes, runs PII detection on the full text, then uses PyMuPDF's <code>apply_redactions()</code> to <strong>permanently remove the text from the PDF content stream</strong>. The redacted text cannot be recovered by selecting, copying, or forensic PDF analysis tools.</p>
 
             <h3>Scanned PDFs &amp; Images</h3>
-            <p>For scanned documents and images, Redactor renders each page at 300 DPI, runs Tesseract OCR to extract words and their pixel bounding boxes, then maps PII detections back to pixel coordinates and draws filled black rectangles over them. For PDFs, the original page content is replaced with the redacted image.</p>
+            <p>For image-based PDFs and standalone images, Redactor renders each page at 300 DPI, runs Tesseract OCR to extract words with pixel bounding boxes, detects PII in the OCR text, then draws filled black rectangles over the identified regions. For scanned PDFs, the redacted image replaces the original page content.</p>
 
             <h3>Mixed documents</h3>
-            <p>Each page in a PDF is assessed individually. Pages with a real text layer use the text pipeline; pages without (scanned pages embedded in a hybrid document) use the OCR pipeline. The output is a single PDF with both types of pages correctly redacted.</p>
+            <p>Each page is assessed individually. Pages with a real text layer use the text pipeline; image-only pages use the OCR pipeline. Both can appear in a single output PDF.</p>
 
-            <h3>PII detection engine</h3>
-            <p>Detection uses <a href="https://microsoft.github.io/presidio/" style="color:var(--accent)">Microsoft Presidio</a> backed by the spaCy <code>en_core_web_lg</code> NLP model. Presidio combines rule-based pattern matching (for structured data like credit card numbers and SSNs) with NLP-based named entity recognition (for unstructured text like names and locations).</p>
+            <h3>Forensic integrity</h3>
+            <div class="callout callout-tip">
+              <span class="callout-icon">✅</span>
+              <div>For text-layer PDFs, redacted content is removed from the content stream — not just painted over. The output file passes forensic inspection; the original text is genuinely absent.</div>
+            </div>
           </section>
 
-          <!-- Redaction levels -->
           <section id="redaction-levels">
             <h2>🛡 Redaction Levels</h2>
-            <p>Each level is a superset of the previous — choosing Aggressive includes everything in Standard, and so on.</p>
-
+            <p>Each level is cumulative — higher levels include everything from the levels below them.</p>
             <table class="level-table">
-              <thead>
-                <tr>
-                  <th>Level</th>
-                  <th>Use case</th>
-                  <th>Entity types added</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Level</th><th>Entities included</th></tr></thead>
               <tbody>
                 <tr>
-                  <td><span class="badge badge-minimal">Minimal</span></td>
-                  <td>High-confidence financial and government IDs only</td>
+                  <td><strong>Minimal</strong></td>
                   <td>
                     <div class="entity-pills">
                       <span class="entity-pill highlight">CREDIT_CARD</span>
@@ -374,231 +337,200 @@
                       <span class="entity-pill highlight">IBAN_CODE</span>
                       <span class="entity-pill highlight">US_BANK_NUMBER</span>
                       <span class="entity-pill highlight">US_PASSPORT</span>
-                      <span class="entity-pill">UK_NHS</span>
-                      <span class="entity-pill">IN_AADHAAR</span>
-                      <span class="entity-pill">IN_PAN</span>
-                      <span class="entity-pill">AU_TFN</span>
-                      <span class="entity-pill">SG_NRIC_FIN</span>
+                      <span class="entity-pill highlight">UK_NHS</span>
+                      <span class="entity-pill highlight">IN_AADHAAR</span>
+                      <span class="entity-pill highlight">IN_PAN</span>
+                      <span class="entity-pill highlight">AU_TFN</span>
+                      <span class="entity-pill highlight">AU_MEDICARE</span>
                     </div>
+                    Financial identifiers and government-issued ID numbers only.
                   </td>
                 </tr>
                 <tr>
-                  <td><span class="badge badge-standard">Standard</span></td>
-                  <td>General data privacy — recommended for most documents</td>
+                  <td><strong>Standard</strong></td>
                   <td>
+                    Everything in Minimal, plus:
                     <div class="entity-pills">
                       <span class="entity-pill highlight">PERSON</span>
                       <span class="entity-pill highlight">EMAIL_ADDRESS</span>
                       <span class="entity-pill highlight">PHONE_NUMBER</span>
-                      <span class="entity-pill">US_DRIVER_LICENSE</span>
-                      <span class="entity-pill">IP_ADDRESS</span>
-                      <span class="entity-pill">MEDICAL_LICENSE</span>
-                      <span class="entity-pill">US_ITIN</span>
+                      <span class="entity-pill highlight">US_DRIVER_LICENSE</span>
+                      <span class="entity-pill highlight">IP_ADDRESS</span>
+                      <span class="entity-pill highlight">MEDICAL_LICENSE</span>
+                      <span class="entity-pill highlight">US_ITIN</span>
                     </div>
+                    Recommended for most use cases.
                   </td>
                 </tr>
                 <tr>
-                  <td><span class="badge badge-aggressive">Aggressive</span></td>
-                  <td>GDPR / privacy-sensitive documents</td>
+                  <td><strong>Aggressive</strong></td>
                   <td>
+                    Everything in Standard, plus:
                     <div class="entity-pills">
                       <span class="entity-pill highlight">LOCATION</span>
                       <span class="entity-pill highlight">DATE_TIME</span>
                       <span class="entity-pill highlight">URL</span>
-                      <span class="entity-pill">NRP</span>
-                      <span class="entity-pill">AU_ABN</span>
-                      <span class="entity-pill">AU_ACN</span>
+                      <span class="entity-pill highlight">NRP</span>
+                      <span class="entity-pill highlight">SG_NRIC_FIN</span>
+                      <span class="entity-pill highlight">AU_ABN</span>
+                      <span class="entity-pill highlight">AU_ACN</span>
                     </div>
+                    Includes dates, locations, URLs, and nationality/religion/political affiliations.
                   </td>
                 </tr>
                 <tr>
-                  <td><span class="badge badge-maximum">Maximum</span></td>
-                  <td>Highly sensitive documents — redacts nearly all entities</td>
+                  <td><strong>Maximum</strong></td>
                   <td>
+                    Everything in Aggressive, plus:
                     <div class="entity-pills">
                       <span class="entity-pill highlight">ORGANIZATION</span>
+                      <span class="entity-pill highlight">AGE</span>
                       <span class="entity-pill highlight">MONEY</span>
-                      <span class="entity-pill">AGE</span>
-                      <span class="entity-pill">FACILITY</span>
+                      <span class="entity-pill highlight">FACILITY</span>
                     </div>
+                    Organisation names, monetary amounts, ages, and facility names.
                   </td>
                 </tr>
                 <tr>
-                  <td><span class="badge badge-custom">Custom</span></td>
-                  <td>Precise control — choose any combination of entity types</td>
-                  <td>User-defined — see <a href="#profiles" style="color:var(--accent)">Custom Profiles</a></td>
+                  <td><strong>Custom</strong></td>
+                  <td>Choose any combination of entity types, or select a saved named profile.</td>
                 </tr>
               </tbody>
             </table>
-
-            <div class="callout callout-warning">
-              <span class="callout-icon">⚠️</span>
-              <div>Higher levels increase processing time and may produce false positives. For example, <strong>Maximum</strong> will redact all dates and monetary values — useful for anonymisation but may remove non-sensitive context. Review output carefully at higher levels.</div>
-            </div>
+            <p>Run <code>GET /api/v1/config/entities</code> or visit Configuration → Redaction Profiles to see all supported entity types with descriptions.</p>
           </section>
 
-          <!-- Uploading -->
           <section id="uploading">
             <h2>⬆️ Uploading Documents</h2>
 
             <h3>Web UI</h3>
-            <p>The <a href="upload.html" style="color:var(--accent)">Upload page</a> supports drag-and-drop or click-to-browse for PDF, PNG, JPG, JPEG, TIFF, and BMP files. Multiple files can be queued before submitting — they are uploaded and processed individually.</p>
-
-            <h4>Options on upload</h4>
+            <p>Go to the <strong>Upload</strong> page. Select your file, choose a redaction level (or a saved profile), and set an output mode:</p>
             <ul>
-              <li><strong>Redaction level</strong> — choose from the five levels, or select Custom and tick individual entity types</li>
-              <li><strong>Profile</strong> — select a saved profile to pre-populate the custom entity checkboxes</li>
-              <li><strong>Output mode</strong> — <em>Save to output directory</em> (default) or <em>Send to webhook</em> (enter a URL)</li>
+              <li><strong>Save to output directory</strong> — the redacted file is saved to <code>/data/output/</code></li>
+              <li><strong>Send to webhook</strong> — the redacted file is delivered to an HTTP endpoint on completion</li>
             </ul>
+            <p>When webhook output is selected, additional fields appear for the endpoint URL, optional template, and whether to embed the file as base64 in the payload.</p>
 
             <h3>REST API</h3>
-            <p>Submit via <code>multipart/form-data</code> POST to <code>/api/v1/jobs/upload</code>:</p>
-            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
-  -F file=@report.pdf \
+            <p>Submit a multipart POST to <code>/api/v1/jobs/upload</code>:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
+  -F file=@invoice.pdf \
   -F level=standard \
   -F output_mode=directory</code></pre>
 
-            <p>With custom entity types:</p>
-            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
-  -F file=@report.pdf \
-  -F level=custom \
-  -F 'custom_entities=["PERSON","EMAIL_ADDRESS","PHONE_NUMBER"]' \
-  -F output_mode=directory</code></pre>
-
-            <p>With webhook delivery:</p>
-            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
-  -F file=@report.pdf \
-  -F level=aggressive \
+            <p>Webhook output with a template:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
+  -F file=@invoice.pdf \
+  -F level=standard \
   -F output_mode=webhook \
-  -F webhook_url=https://your-server.com/hook</code></pre>
+  -F webhook_url=https://dms.example.com/api/CreateDocument \
+  -F webhook_template=therefore_create_document \
+  -F webhook_include_file=true \
+  -F 'webhook_extra={"category_no": 299}'</code></pre>
 
-            <h4>Supported formats</h4>
-            <ul>
-              <li><strong>PDF</strong> — text-layer PDFs and scanned/image PDFs, including mixed documents</li>
-              <li><strong>PNG, JPG, JPEG, TIFF, TIF, BMP</strong> — redacted using OCR</li>
-            </ul>
+            <h4>All upload parameters</h4>
+            <table class="level-table">
+              <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>file</code></td><td>Yes</td><td>The file to redact</td></tr>
+                <tr><td><code>level</code></td><td>No</td><td><code>minimal</code>, <code>standard</code>, <code>aggressive</code>, <code>maximum</code>, or <code>custom</code></td></tr>
+                <tr><td><code>custom_entities</code></td><td>If <code>level=custom</code></td><td>JSON array of entity types, e.g. <code>["PERSON","EMAIL_ADDRESS"]</code></td></tr>
+                <tr><td><code>profile_name</code></td><td>No</td><td>Name of a saved profile (sets <code>level=custom</code> automatically)</td></tr>
+                <tr><td><code>output_mode</code></td><td>No</td><td><code>directory</code> or <code>webhook</code></td></tr>
+                <tr><td><code>webhook_url</code></td><td>If webhook mode</td><td>URL to POST the completion payload to</td></tr>
+                <tr><td><code>webhook_template</code></td><td>No</td><td>Name of a saved Jinja2 template to render the webhook body</td></tr>
+                <tr><td><code>webhook_include_file</code></td><td>No</td><td><code>true</code> — embed redacted file as base64 in the webhook payload</td></tr>
+                <tr><td><code>webhook_secret</code></td><td>No</td><td>HMAC signing secret for the webhook request</td></tr>
+                <tr><td><code>webhook_extra</code></td><td>No</td><td>JSON object — keys become available as variables in the webhook template</td></tr>
+              </tbody>
+            </table>
           </section>
 
-          <!-- Folder polling -->
           <section id="folder-polling">
             <h2>📁 Folder Polling</h2>
-            <p>When folder polling is enabled, Redactor watches the <code>/data/input</code> directory and automatically submits any new files it finds. This is useful for integrating with other systems that drop files into a shared folder.</p>
+            <p>When folder polling is enabled, Redactor automatically processes any file placed in the <code>/data/input/</code> directory. No API call required — just drop the file and it will appear as a completed job on the Dashboard within one poll interval.</p>
 
             <h3>How to drop files</h3>
-            <p>From the Docker host, copy files into the container's input directory:</p>
-            <pre><code># Using docker cp
+            <pre><code># Via docker cp (named volume)
 docker cp document.pdf redactor-backend:/data/input/
 
-# Using docker exec and a bind-mounted host directory
-cp /local/path/document.pdf /host/mount/input/</code></pre>
-
-            <div class="callout callout-tip">
-              <span class="callout-icon">💡</span>
-              <div>For production use, mount a host directory into the container so you can write files directly from the host filesystem. See the <a href="#admin" style="color:var(--accent)">Admin Reference</a> for how to configure bind mounts.</div>
-            </div>
+# Via host-mounted volume
+cp document.pdf /your/host/path/input/</code></pre>
 
             <h3>How polling works</h3>
             <ul>
-              <li>The poller runs at the configured interval (default 15 seconds)</li>
-              <li>Each file's SHA-256 hash is recorded — the same file is never processed twice even if re-copied</li>
-              <li>After pickup, files are moved out of <code>/data/input</code> and stored in <code>/data/originals</code></li>
-              <li>Polled files use the system's <strong>default redaction level</strong> and <strong>default output mode</strong>, configurable on the <a href="config.html" style="color:var(--accent)">Configuration page</a></li>
+              <li>Each file's SHA-256 hash is recorded on first processing so the same file is never processed twice</li>
+              <li>Files are moved out of <code>/data/input/</code> after being queued to prevent re-processing</li>
+              <li>Polled files use the system default redaction level and output mode set in Configuration</li>
+              <li>The poll interval is configurable (default 15 seconds) and can be changed without restarting</li>
             </ul>
 
             <h3>Enabling / disabling polling</h3>
-            <p>Go to <strong>Configuration → System Settings</strong> and toggle <em>Enable automatic folder polling</em>. Changes take effect at the next poll cycle — no restart required.</p>
+            <p>Go to <strong>Configuration → System Settings</strong> and toggle <em>Enable automatic folder polling</em>. Changes take effect immediately without a restart.</p>
           </section>
 
-          <!-- Jobs -->
           <section id="jobs">
             <h2>📋 Managing Jobs</h2>
 
             <h3>Job statuses</h3>
-            <ul>
-              <li><span class="badge badge-queued">queued</span> — waiting for a worker slot</li>
-              <li><span class="badge badge-processing">processing</span> — redaction in progress</li>
-              <li><span class="badge badge-completed">completed</span> — redacted file is ready for download</li>
-              <li><span class="badge badge-failed">failed</span> — an error occurred; see the job detail page for the error message</li>
-              <li><span class="badge badge-cancelled">cancelled</span> — the job was deleted before processing started</li>
-            </ul>
+            <table class="level-table">
+              <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge badge-queued">queued</span></td><td>Waiting for a worker slot</td></tr>
+                <tr><td><span class="badge badge-processing">processing</span></td><td>Actively being redacted</td></tr>
+                <tr><td><span class="badge badge-completed">completed</span></td><td>Redaction finished successfully</td></tr>
+                <tr><td><span class="badge badge-failed">failed</span></td><td>An error occurred — check the job detail for the error message</td></tr>
+              </tbody>
+            </table>
 
             <h3>Dashboard</h3>
-            <p>The <a href="index.html" style="color:var(--accent)">Dashboard</a> shows all jobs with live auto-refresh (every 5 seconds). Use the filter tabs to narrow by status. Click <strong>View</strong> to see the full job detail, or <strong>⬇</strong> to download a completed job directly.</p>
-
-            <h3>Job detail page</h3>
-            <p>The job detail page shows:</p>
+            <p>The Dashboard shows all recent jobs with their status, filename, level, page count, entity counts, and processing time. For completed jobs, two action buttons are shown:</p>
             <ul>
-              <li>Full job metadata (file name, ID, level, source, processing time)</li>
-              <li>Entity breakdown — a bar chart of how many instances of each entity type were found</li>
-              <li>Full JSON report from the API</li>
-              <li>Download buttons for the redacted file and (if retention is on) the original</li>
+              <li><strong>👁</strong> — opens the redacted file inline in a new browser tab</li>
+              <li><strong>⬇</strong> — downloads the redacted file</li>
             </ul>
 
+            <h3>Job detail page</h3>
+            <p>Click any job row to open its detail page. This shows the full entity breakdown, processing stats, webhook delivery status, and the full error message for failed jobs.</p>
+
             <h3>Retrying failed jobs</h3>
-            <p>If a job fails (e.g. due to a corrupted file or temporary error), open the job detail page and click <strong>↺ Retry</strong>. The job is re-queued with the same settings. You can also retry via the API:</p>
-            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/{job_id}/retry</code></pre>
+            <p>On the job detail page, click <strong>Retry Job</strong> to re-queue a failed job with the same parameters.</p>
 
             <h3>Deleting jobs</h3>
-            <p>Deleting a job removes its database record and both the input and output files. Queued jobs are cancelled instead of immediately deleted. Jobs that are currently processing cannot be deleted.</p>
+            <p>Click <strong>Delete</strong> on the job detail page to remove the job record and its associated files from storage.</p>
           </section>
 
-          <!-- Profiles -->
           <section id="profiles">
             <h2>📋 Custom Redaction Profiles</h2>
-            <p>Profiles let you save a named set of entity types so you don't have to re-select them for every job. A profile is equivalent to the <strong>Custom</strong> level with a pre-defined entity list.</p>
+            <p>Profiles let you save a named set of entity types so you don't have to specify them individually on every upload. Useful when you have a fixed set of types for a particular workflow or compliance requirement.</p>
 
             <h3>Creating a profile</h3>
-            <div class="steps">
-              <div class="step">
-                <div class="step-num">1</div>
-                <div class="step-content">
-                  <strong>Open Configuration → Redaction Profiles</strong>
-                  <p>Click the <strong>+ New Profile</strong> button.</p>
-                </div>
-              </div>
-              <div class="step">
-                <div class="step-num">2</div>
-                <div class="step-content">
-                  <strong>Name the profile and select entities</strong>
-                  <p>Give it a descriptive name (e.g. "GDPR Essentials"), optionally add a description, and tick the entity types to include.</p>
-                </div>
-              </div>
-              <div class="step">
-                <div class="step-num">3</div>
-                <div class="step-content">
-                  <strong>Save</strong>
-                  <p>The profile is immediately available on the Upload page's profile dropdown.</p>
-                </div>
-              </div>
-            </div>
+            <p>Go to <strong>Configuration → Redaction Profiles → New Profile</strong>. Give the profile a name, optionally a description, and check the entity types to include.</p>
+
+            <p>Via API:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/config/profiles \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "GDPR Essentials",
+    "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "LOCATION"],
+    "description": "Core GDPR personal data fields"
+  }'</code></pre>
 
             <h3>Using a profile on upload</h3>
-            <p>On the Upload page, select <strong>Custom</strong> level, then choose the profile from the "Or use a saved profile" dropdown. The entity checkboxes are pre-populated from the profile.</p>
-            <p>Via the API:</p>
-            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
+            <p>Select the profile from the dropdown on the Upload page, or pass <code>profile_name</code> in the API:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
   -F file=@document.pdf \
   -F profile_name="GDPR Essentials"</code></pre>
-
-            <div class="callout callout-tip">
-              <span class="callout-icon">💡</span>
-              <div>Set a profile as the system default on the Configuration page so all polled files automatically use it.</div>
-            </div>
           </section>
 
-          <!-- Webhooks -->
           <section id="webhooks">
             <h2>🔔 Webhooks</h2>
-            <p>Webhooks let external systems receive a notification as soon as a job completes, including a URL to download the redacted file.</p>
+            <p>When a job's output mode is set to <code>webhook</code>, Redactor posts a JSON payload to your configured endpoint as soon as the job completes. Webhooks are retried up to 3 times with exponential backoff on failure.</p>
 
             <h3>Registering a webhook</h3>
-            <p>Go to <strong>Configuration → Webhooks</strong> and fill in the URL, an optional display name, and an optional signing secret. Click <strong>Add</strong>.</p>
-            <p>Alternatively, via the API:</p>
-            <pre><code>curl -X POST http://localhost:8080/api/v1/config/webhooks \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://your-server.com/hook", "name": "My Server", "secret": "s3cret"}'</code></pre>
+            <p>Go to <strong>Configuration → Webhooks → Add Webhook</strong>. Enter the URL, an optional name, and an optional signing secret. Registered webhooks receive a notification for every job that completes with <code>output_mode=webhook</code> and that webhook's URL.</p>
 
-            <h3>Webhook payload</h3>
-            <p>Redactor sends a JSON POST to your endpoint when a job completes:</p>
+            <h3>Standard webhook payload</h3>
             <pre><code>{
   "event": "job.completed",
   "job_id": "a1b2c3d4-...",
@@ -606,162 +538,222 @@ cp /local/path/document.pdf /host/mount/input/</code></pre>
   "status": "completed",
   "level": "standard",
   "page_count": 3,
-  "entities_found": {"PERSON": 4, "EMAIL_ADDRESS": 2},
+  "entities_found": { "PERSON": 2, "EMAIL_ADDRESS": 1 },
   "processing_ms": 1842,
   "completed_at": "2026-03-18T10:00:01Z",
   "download_url": "http://redactor-host/api/v1/jobs/a1b2c3d4-.../download"
 }</code></pre>
+            <p>If <code>webhook_include_file=true</code>, the payload also includes <code>file_data</code> (base64-encoded redacted file), <code>file_name</code>, and <code>file_size_bytes</code>.</p>
 
             <h3>Verifying signatures</h3>
-            <p>If a signing secret is set, each request includes an HMAC-SHA256 signature:</p>
-            <pre><code>X-Redactor-Signature: sha256=abc123...
-X-Redactor-Timestamp: 1710756001</code></pre>
+            <p>If a signing secret is configured, every request includes:</p>
+            <pre><code>X-Redactor-Signature: sha256=&lt;hmac-hex&gt;
+X-Redactor-Timestamp: &lt;unix-timestamp&gt;</code></pre>
             <p>Verify in Python:</p>
             <pre><code>import hmac, hashlib
 
-def verify(body: bytes, secret: str, header: str) -> bool:
+def verify(body: bytes, secret: str, sig_header: str) -> bool:
     expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    received = header.removeprefix("sha256=")
-    return hmac.compare_digest(expected, received)</code></pre>
+    return hmac.compare_digest(expected, sig_header.removeprefix("sha256="))</code></pre>
 
             <h3>Retries</h3>
-            <p>If your endpoint returns a non-2xx response or is unreachable, Redactor retries up to 3 times with exponential backoff (1s, 2s, 4s). After 3 failures the delivery is marked as failed in the job record.</p>
+            <p>Failed webhook deliveries are retried automatically: attempt 1 immediately, attempt 2 after 1 second, attempt 3 after 2 seconds. If all three fail, the job is marked <code>webhook_sent=false</code>.</p>
 
             <h3>Testing a webhook</h3>
-            <p>On the Configuration → Webhooks tab, click <strong>Test</strong> next to any registered webhook. A test payload is sent immediately and the result (success or failure) is shown as a notification.</p>
+            <p>Click <strong>Test</strong> next to any registered webhook in Configuration → Webhooks to send a test payload immediately.</p>
           </section>
 
-          <!-- REST API -->
+          <section id="templates">
+            <h2>📝 Webhook Templates</h2>
+            <p>Webhook templates let you control the exact JSON body that Redactor posts to an endpoint. They are <a href="https://jinja.palletsprojects.com/" target="_blank">Jinja2</a> templates rendered at job completion time, with the job's data available as variables. This makes it possible to post directly to a third-party API — such as a DMS — without needing an intermediate adapter service.</p>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ️</span>
+              <div>Three Therefore-ready templates are pre-loaded: <code>therefore_create_document</code>, <code>therefore_update_document</code>, and <code>therefore_update_document2</code>. Edit them to match your category's field definitions.</div>
+            </div>
+
+            <h3>Template variables</h3>
+            <table class="level-table">
+              <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>job_id</code></td><td>Job UUID</td></tr>
+                <tr><td><code>filename</code></td><td>Original filename (with extension)</td></tr>
+                <tr><td><code>stem</code></td><td>Filename without extension</td></tr>
+                <tr><td><code>status</code></td><td><code>completed</code> or <code>failed</code></td></tr>
+                <tr><td><code>level</code></td><td>Redaction level: <code>standard</code>, <code>aggressive</code>, etc.</td></tr>
+                <tr><td><code>page_count</code></td><td>Number of pages processed</td></tr>
+                <tr><td><code>entities_found</code></td><td>Dict of <code>{"ENTITY_TYPE": count}</code></td></tr>
+                <tr><td><code>total_entities</code></td><td>Sum of all entity counts</td></tr>
+                <tr><td><code>processing_ms</code></td><td>Processing time in milliseconds</td></tr>
+                <tr><td><code>completed_at</code></td><td>ISO 8601 timestamp: <code>2026-03-18T16:22:14Z</code></td></tr>
+                <tr><td><code>file_data</code></td><td>Base64-encoded redacted file (requires <code>webhook_include_file=true</code>)</td></tr>
+                <tr><td><code>file_name</code></td><td>Output filename</td></tr>
+                <tr><td><code>file_size_bytes</code></td><td>Output file size in bytes</td></tr>
+                <tr><td><em>any key from <code>webhook_extra</code></em></td><td>Merged in from the per-job <code>webhook_extra</code> JSON object</td></tr>
+              </tbody>
+            </table>
+
+            <h4>Date formatting</h4>
+            <p>Some APIs (including Therefore) require dates in <code>yyyy-MM-dd</code> format rather than a full ISO timestamp. Use Jinja2's string slice:</p>
+            <pre><code>{{ completed_at[:10] }}   {# produces: 2026-03-18 #}</code></pre>
+
+            <h3>Template headers</h3>
+            <p>Each template has an optional <strong>HTTP Headers</strong> field — a JSON object of headers sent with every POST that uses the template. Store API credentials here rather than passing them per-request:</p>
+            <pre><code>{
+  "Authorization": "Basic &lt;base64(username:password)&gt;",
+  "TenantName": "acme",
+  "Content-Type": "application/json"
+}</code></pre>
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>Storing credentials in the template keeps them out of the job submission request. This is especially useful when Therefore (or another system) is submitting jobs — you don't need to pass auth credentials through the calling system at all.</div>
+            </div>
+
+            <h3>Dynamic per-job variables</h3>
+            <p>Pass a <code>webhook_extra</code> JSON object when submitting a job. Every key is merged into the template context and available as a variable:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
+  -F file=@invoice.pdf \
+  -F output_mode=webhook \
+  -F webhook_url=https://dms.example.com/CreateDocument \
+  -F webhook_template=therefore_create_document \
+  -F webhook_include_file=true \
+  -F 'webhook_extra={"category_no": 299}'</code></pre>
+            <p>In the template: <code>{{ category_no | default(57) }}</code> — the <code>default(57)</code> filter provides a fallback when the variable isn't supplied.</p>
+
+            <h3>Duplicating templates</h3>
+            <p>Click <strong>Duplicate</strong> on any template to create a copy with all the same headers and body. The copy is named <code>templatename_copy</code> (or <code>_copy_2</code> etc. if that name is already taken). Useful when you need the same auth credentials but different category numbers or index field mappings across multiple workflows.</p>
+
+            <h3>Jinja2 tips</h3>
+            <ul>
+              <li><code>{{ value | default("fallback") }}</code> — use a fallback if the variable isn't set</li>
+              <li><code>{{ value | tojson }}</code> — safely encode a value as JSON (useful for the <code>entities_found</code> dict)</li>
+              <li><code>{% if file_data %}...{% endif %}</code> — conditionally include the file stream only when data is present</li>
+              <li><code>{{ completed_at[:10] }}</code> — date only (<code>yyyy-MM-dd</code>)</li>
+            </ul>
+          </section>
+
           <section id="rest-api">
             <h2>🔌 REST API Reference</h2>
-            <p>All endpoints are under <code>/api/v1</code>. The UI is served at the root path by nginx, which reverse-proxies <code>/api/</code> to the backend.</p>
+            <p>Base URL: <code>http://redactor-host:8080/api/v1</code></p>
 
             <h3>Jobs</h3>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/jobs/upload</div>
+            <p>Submit a document for redaction. See Uploading Documents for all parameters.</p>
 
-            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/jobs/upload</div>
-            <p>Submit a document for redaction. Accepts <code>multipart/form-data</code>. Returns <code>{"job_id": "...", "status": "queued"}</code>.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/jobs</div>
+            <p>List jobs. Query params: <code>status</code>, <code>page</code>, <code>per_page</code>.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs</div>
-            <p>List jobs. Query params: <code>status</code>, <code>page</code> (default 1), <code>per_page</code> (default 20, max 100).</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/jobs/{job_id}</div>
+            <p>Get full details of a single job.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}</div>
-            <p>Get full job detail including entity counts.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/jobs/{job_id}/download</div>
+            <p>Download the redacted output file.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}/download</div>
-            <p>Download the redacted output file. Only available when status is <code>completed</code>.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/jobs/{job_id}/view</div>
+            <p>Serve the redacted file inline (for browser viewing).</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}/original</div>
-            <p>Download the original file (only if retention is enabled).</p>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/jobs/{job_id}/retry</div>
+            <p>Re-queue a failed job with the same parameters.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}/report</div>
-            <p>Get JSON redaction report (entity breakdown, page count, timing).</p>
-
-            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/jobs/{job_id}/retry</div>
-            <p>Re-queue a failed or cancelled job.</p>
-
-            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/api/v1/jobs/{job_id}</div>
-            <p>Delete a job and its files. Cancels queued jobs; cannot delete jobs currently processing.</p>
+            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/jobs/{job_id}</div>
+            <p>Delete a job and its associated files.</p>
 
             <h3>Configuration</h3>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/config</div>
+            <div class="api-endpoint"><span class="api-method method-put">PUT</span>/config</div>
+            <p>Get or update system configuration.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config</div>
-            <p>Get the current runtime configuration object.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/config/profiles</div>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/config/profiles</div>
+            <div class="api-endpoint"><span class="api-method method-put">PUT</span>/config/profiles/{name}</div>
+            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/config/profiles/{name}</div>
+            <p>CRUD for named redaction profiles.</p>
 
-            <div class="api-endpoint"><span class="api-method method-put">PUT</span>/api/v1/config</div>
-            <p>Update runtime configuration. Changes are written to <code>/data/runtime_config.json</code> and take effect immediately.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/config/webhooks</div>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/config/webhooks</div>
+            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/config/webhooks/{id}</div>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/config/webhooks/{id}/test</div>
+            <p>CRUD for registered webhook endpoints, plus a test action.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config/entities</div>
-            <p>List all supported entity types with human-readable descriptions.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/config/templates</div>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/config/templates</div>
+            <div class="api-endpoint"><span class="api-method method-put">PUT</span>/config/templates/{name}</div>
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/config/templates/{name}/duplicate</div>
+            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/config/templates/{name}</div>
+            <p>CRUD for Jinja2 webhook templates, plus a duplicate action.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config/profiles</div>
-            <p>List all saved custom profiles.</p>
-
-            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/config/profiles</div>
-            <p>Create a new profile. Body: <code>{"name": "...", "entities": [...], "description": "..."}</code>.</p>
-
-            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/api/v1/config/profiles/{name}</div>
-            <p>Delete a profile by name.</p>
-
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config/webhooks</div>
-            <p>List registered webhook endpoints.</p>
-
-            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/config/webhooks</div>
-            <p>Register a webhook. Body: <code>{"url": "...", "name": "...", "secret": "...", "enabled": true}</code>.</p>
-
-            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/config/webhooks/{id}/test</div>
-            <p>Send a test payload to a webhook endpoint.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/config/entities</div>
+            <p>List all supported entity types with descriptions.</p>
 
             <h3>System</h3>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/stats</div>
+            <p>Aggregate counts of jobs by status and total entities redacted.</p>
 
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/health</div>
-            <p>Liveness check. Returns <code>{"status": "ok", "db": "ok"}</code>.</p>
-
-            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/stats</div>
-            <p>Aggregate statistics: job counts by status, total entities found, total pages processed, average processing time.</p>
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/health</div>
+            <p>Health check — returns 200 when the service is ready.</p>
           </section>
 
-          <!-- Configuration -->
           <section id="configuration">
             <h2>⚙️ Configuration Reference</h2>
-            <p>All settings on the <a href="config.html" style="color:var(--accent)">Configuration page</a> are stored in <code>/data/runtime_config.json</code> and take effect immediately without a restart.</p>
 
             <h3>System Settings</h3>
             <table class="level-table">
               <thead><tr><th>Setting</th><th>Default</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td>Folder polling enabled</td><td>On</td><td>Watch <code>/data/input</code> for new files</td></tr>
-                <tr><td>Poll interval</td><td>15 seconds</td><td>How often to scan the input directory</td></tr>
-                <tr><td>Default redaction level</td><td>Standard</td><td>Level applied to polled files and API uploads that don't specify one</td></tr>
-                <tr><td>Default output mode</td><td>Directory</td><td>Where polled file results are delivered</td></tr>
-                <tr><td>Keep original files</td><td>On</td><td>Retain a copy of the original document alongside the redacted version</td></tr>
-                <tr><td>Retention period</td><td>30 days</td><td>How long to keep original files (automatic cleanup not yet implemented — manual deletion required)</td></tr>
-                <tr><td>Worker concurrency</td><td>2</td><td>Number of documents processed simultaneously</td></tr>
-                <tr><td>Max file size</td><td>100 MB</td><td>Maximum upload size accepted by the API</td></tr>
-                <tr><td>OCR language</td><td>English</td><td>Tesseract language used for scanned content</td></tr>
+                <tr><td>Folder Polling</td><td>On</td><td>Automatically process files dropped in <code>/data/input/</code></td></tr>
+                <tr><td>Poll Interval</td><td>15s</td><td>How often the input directory is scanned</td></tr>
+                <tr><td>Default Redaction Level</td><td>Standard</td><td>Level used for polled files and the Upload page default</td></tr>
+                <tr><td>Keep Originals</td><td>On</td><td>Copy original files to <code>/data/originals/</code> before redacting</td></tr>
+                <tr><td>Retention Period</td><td>30 days</td><td>How long original files are kept</td></tr>
+                <tr><td>Worker Concurrency</td><td>2</td><td>Number of simultaneous redaction jobs</td></tr>
+                <tr><td>Max File Size</td><td>100 MB</td><td>Maximum accepted upload size</td></tr>
+                <tr><td>OCR Language</td><td>English</td><td>Language model used for Tesseract OCR</td></tr>
               </tbody>
             </table>
-
-            <div class="callout callout-warning">
-              <span class="callout-icon">⚠️</span>
-              <div>Increasing <strong>Worker concurrency</strong> above the number of available CPU cores may cause slowdowns rather than speedups, as OCR and NLP are CPU-bound operations.</div>
-            </div>
+            <p>All settings can be changed live via the web UI without restarting. They are persisted to <code>/data/runtime_config.json</code>.</p>
           </section>
 
-          <!-- Therefore Integration -->
           <section id="therefore">
             <h2>🗂 Therefore™ Integration</h2>
             <p>
               This section covers the full round-trip workflow between Therefore and Redactor.
-              There are two approaches — choose the one that fits your category setup.
+              The recommended approach posts directly to Therefore's REST API using a webhook
+              template — no adapter service is required.
             </p>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
-              <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius);padding:16px">
-                <div style="font-weight:700;margin-bottom:6px;color:var(--accent)">Approach A — Webhook Template</div>
-                <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Redactor posts directly to Therefore's CreateDocument endpoint. No adapter service required.</div>
-                <div style="font-family:monospace;font-size:11px;line-height:1.8">
-                  Therefore ─▶ <span style="color:var(--accent)">Redactor</span> ─▶ <span style="color:var(--success)">Therefore CreateDocument</span>
-                </div>
-              </div>
-              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-                <div style="font-weight:700;margin-bottom:6px">Approach B — Adapter Service</div>
-                <div style="font-size:13px;color:var(--muted);margin-bottom:10px">A small service reshapes the payload. Use when you need PreprocessIndexData or dynamic keyword lookups.</div>
-                <div style="font-family:monospace;font-size:11px;line-height:1.8">
-                  Therefore ─▶ <span style="color:var(--accent)">Redactor</span> ─▶ <span style="color:var(--warning)">Adapter</span> ─▶ <span style="color:var(--success)">Therefore CreateDocument</span>
-                </div>
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ️</span>
+              <div>
+                <strong>Flow overview:</strong> Therefore sends a document to Redactor via a REST Request action →
+                Redactor redacts it → Redactor renders the webhook template and posts directly to Therefore's
+                <code>CreateDocument</code> endpoint with the redacted file as a base64 stream.
               </div>
             </div>
 
-            <!-- ── Approach A ──────────────────────────────────────────── -->
-            <h3>Approach A — Webhook Template (no adapter)</h3>
+            <h3>Step 1 — Store credentials in the webhook template</h3>
+            <p>Go to <strong>Configuration → Webhook Templates</strong> and click <strong>Edit</strong> on <code>therefore_create_document</code>. In the <strong>HTTP Headers</strong> field, enter your Therefore credentials as a JSON object:</p>
+            <pre><code>{
+  "Authorization": "Basic &lt;base64(username:password)&gt;",
+  "TenantName": "yourtenantname",
+  "Content-Type": "application/json"
+}</code></pre>
 
-            <h4>Step 1A — Create the webhook template</h4>
-            <p>
-              Go to <strong>Configuration → Webhook Templates</strong> and open the pre-loaded
-              <code>therefore_create_document</code> template (or create a new one). The body
-              is Jinja2 JSON that maps Redactor job variables directly to Therefore's
-              <code>CreateDocument</code> structure:
-            </p>
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>
+                To generate the Basic auth value: <code>echo -n "username:password" | base64</code><br>
+                <code>TenantName</code> is only required for Therefore Online (<code>*.thereforeonline.com</code>). Set it to your subdomain prefix — e.g. for <code>acme.thereforeonline.com</code>, use <code>acme</code>.
+              </div>
+            </div>
+
+            <h3>Step 2 — Update the template body for your category</h3>
+            <p>The default template body covers the most common index fields. Edit it to match your Therefore category's field definitions. Key points:</p>
+            <ul>
+              <li>Set <code>FieldNo</code> values to match your category. Look them up with <code>POST /restun/GetCategoryInfo {"CategoryNo": N}</code>.</li>
+              <li>Use <code>{{ completed_at[:10] }}</code> for date fields — Therefore's <code>DateIndexData</code> expects <code>yyyy-MM-dd</code> format only.</li>
+              <li>Use <code>{{ category_no | default(57) }}</code> for the category number so it can be overridden per-job.</li>
+            </ul>
+
             <pre><code>{
   "CategoryNo": {{ category_no | default(57) }},
   "CheckInComments": "Redacted by Redactor — {{ filename }}",
@@ -774,31 +766,10 @@ def verify(body: bytes, secret: str, header: str) -> bool:
       }
     },
     {
-      "StringIndexData": {
-        "FieldName": "Redaction_Level",
-        "FieldNo": 0,
-        "DataValue": "{{ level }}"
-      }
-    },
-    {
-      "StringIndexData": {
-        "FieldName": "Job_ID",
-        "FieldNo": 0,
-        "DataValue": "{{ job_id }}"
-      }
-    },
-    {
       "DateIndexData": {
         "FieldName": "Redaction_Date",
         "FieldNo": 0,
-        "DataISO8601Value": "{{ completed_at }}"
-      }
-    },
-    {
-      "IntIndexData": {
-        "FieldName": "Page_Count",
-        "FieldNo": 0,
-        "DataValue": {{ page_count }}
+        "DataISO8601Value": "{{ completed_at[:10] }}"
       }
     }
   ],
@@ -814,65 +785,30 @@ def verify(body: bytes, secret: str, header: str) -> bool:
   "DoFillDependentFields": true
 }</code></pre>
 
-            <div class="callout callout-info">
-              <span class="callout-icon">ℹ️</span>
-              <div>
-                <strong>Available template variables:</strong>
-                <code>job_id</code>, <code>filename</code>, <code>stem</code> (without extension),
-                <code>status</code>, <code>level</code>, <code>page_count</code>,
-                <code>entities_found</code>, <code>total_entities</code>, <code>processing_ms</code>,
-                <code>completed_at</code>, <code>file_data</code> (base64), <code>file_name</code>,
-                <code>file_size_bytes</code>. Jinja2 filters like <code>| default(value)</code> are supported.
-              </div>
+            <h3>Step 3 — Configure Therefore's outgoing REST Request</h3>
+            <p>In Therefore, create a REST Request workflow action targeting Redactor's upload endpoint. In the <strong>Body</strong> tab, add the following fields:</p>
+
+            <table class="level-table">
+              <thead><tr><th>Field name</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td><code>level</code></td><td><code>standard</code></td></tr>
+                <tr><td><code>output_mode</code></td><td><code>webhook</code></td></tr>
+                <tr><td><code>webhook_url</code></td><td>Your Therefore CreateDocument URL, e.g. <code>https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument</code></td></tr>
+                <tr><td><code>webhook_template</code></td><td><code>therefore_create_document</code></td></tr>
+                <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
+                <tr><td><code>webhook_extra</code></td><td><code>{"category_no": 57}</code> (optional — omit to use the template's default)</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div><strong>Multiple categories:</strong> Duplicate the template for each category and change the default category number in each copy, or pass <code>webhook_extra={"category_no": N}</code> per-job from Therefore to use a single template across multiple categories.</div>
             </div>
 
-            <h4>Step 2A — Therefore sends the document to Redactor</h4>
-            <p>
-              Configure Therefore's outgoing REST call to POST to Redactor's upload endpoint,
-              setting <code>webhook_url</code> to Therefore's own <code>CreateDocument</code>
-              endpoint and <code>webhook_template</code> to the template name. Therefore's
-              auth credentials go in <code>webhook_headers</code>.
-            </p>
-            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload
-Content-Type: multipart/form-data; boundary=----ThereforeBoundary
+            <p>The Therefore REST Request URL should point to Redactor's upload endpoint:</p>
+            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload</code></pre>
 
-------ThereforeBoundary
-Content-Disposition: form-data; name="file"; filename="invoice.pdf"
-Content-Type: application/pdf
-
-&lt;binary file content&gt;
-------ThereforeBoundary
-Content-Disposition: form-data; name="level"
-
-standard
-------ThereforeBoundary
-Content-Disposition: form-data; name="output_mode"
-
-webhook
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_url"
-
-https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_template"
-
-therefore_create_document
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_include_file"
-
-true
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_headers"
-
-{"Authorization":"Basic c3ZjX3JlZGFjdG9yOnBhc3N3b3Jk","TenantName":"acme","Content-Type":"application/json"}
-------ThereforeBoundary--</code></pre>
-
-            <p style="font-size:13px;color:var(--muted)">
-              <code>Authorization</code> is Basic auth — <code>base64(username:password)</code>.
-              <code>TenantName</code> is only required for Therefore Online — set it to your subdomain prefix.
-            </p>
-
-            <h4>Equivalent curl (for testing)</h4>
+            <p>Equivalent curl for testing the full flow:</p>
             <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
   -F file=@invoice.pdf \
   -F level=standard \
@@ -880,231 +816,74 @@ Content-Disposition: form-data; name="webhook_headers"
   -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument \
   -F webhook_template=therefore_create_document \
   -F webhook_include_file=true \
-  -F 'webhook_headers={"Authorization":"Basic c3ZjX3JlZGFjdG9yOnBhc3N3b3Jk","TenantName":"acme","Content-Type":"application/json"}'</code></pre>
+  -F 'webhook_extra={"category_no": 57}'</code></pre>
 
-            <div class="callout callout-info">
-              <span class="callout-icon">ℹ️</span>
-              <div>
-                Redactor queues the job, renders the template on completion, and POSTs the
-                result directly to Therefore's <code>CreateDocument</code> — no adapter service needed.
-              </div>
-            </div>
+            <h3>Adapter approach (advanced)</h3>
+            <p>Use an adapter service instead of the direct template approach when you need <code>PreprocessIndexData</code> (auto-numbering, calculated fields, mandatory keyword lookups) before calling <code>CreateDocument</code>. The adapter receives Redactor's standard webhook payload and handles the Therefore API calls itself.</p>
 
-            <!-- ── Approach B ──────────────────────────────────────────── -->
-            <h3>Approach B — Adapter Service</h3>
-            <p>
-              Use this when you need <code>PreprocessIndexData</code> (auto-numbering,
-              calculated fields, mandatory keyword lookups) before calling
-              <code>CreateDocument</code>, or when index data requires logic beyond what
-              templates can express.
-            </p>
-
-            <h4>Step 1B — Therefore sends the document to Redactor</h4>
-            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload
-Content-Type: multipart/form-data; boundary=----ThereforeBoundary
-
-------ThereforeBoundary
-Content-Disposition: form-data; name="file"; filename="invoice.pdf"
-Content-Type: application/pdf
-
-&lt;binary file content&gt;
-------ThereforeBoundary
-Content-Disposition: form-data; name="level"
-
-standard
-------ThereforeBoundary
-Content-Disposition: form-data; name="output_mode"
-
-webhook
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_url"
-
-http://adapter-host:8090/redactor-callback
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_include_file"
-
-true
-------ThereforeBoundary
-Content-Disposition: form-data; name="webhook_secret"
-
-your-shared-secret
-------ThereforeBoundary--</code></pre>
-
-            <h4>Equivalent curl</h4>
-            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
-  -F file=@invoice.pdf \
-  -F level=standard \
-  -F output_mode=webhook \
-  -F webhook_url=http://adapter-host:8090/redactor-callback \
-  -F webhook_include_file=true \
-  -F webhook_secret=your-shared-secret</code></pre>
-
-            <h4>Step 2B — Redactor delivers the standard payload to the adapter</h4>
-            <p>When the job completes, Redactor POSTs its standard JSON payload (HMAC-signed) to the adapter:</p>
-            <pre><code>{
-  "event": "job.completed",
-  "job_id": "a1b2c3d4-...",
-  "filename": "invoice.pdf",
-  "status": "completed",
-  "level": "standard",
-  "page_count": 3,
-  "entities_found": { "PERSON": 4, "EMAIL_ADDRESS": 2 },
-  "processing_ms": 2341,
-  "completed_at": "2026-03-18T12:00:01Z",
-  "file_name": "invoice_redacted_a1b2c3d4.pdf",
-  "file_size_bytes": 94208,
-  "file_data": "JVBERi0xLjQKJeLjz9MKN..."
-}</code></pre>
-
-            <h4>Step 3B — The adapter saves the document back to Therefore</h4>
             <pre><code>import hashlib, hmac, os, requests
 from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
-REDACTOR_WEBHOOK_SECRET = os.environ["REDACTOR_WEBHOOK_SECRET"]
-THEREFORE_BASE_URL      = os.environ["THEREFORE_BASE_URL"]
-THEREFORE_USERNAME      = os.environ["THEREFORE_USERNAME"]
-THEREFORE_PASSWORD      = os.environ["THEREFORE_PASSWORD"]
-THEREFORE_TENANT        = os.environ.get("THEREFORE_TENANT", "")
-THEREFORE_CATEGORY_NO   = int(os.environ["THEREFORE_CATEGORY_NO"])
+REDACTOR_SECRET  = os.environ["REDACTOR_WEBHOOK_SECRET"]
+THEREFORE_BASE   = os.environ["THEREFORE_BASE_URL"]
+CATEGORY_NO      = int(os.environ["THEREFORE_CATEGORY_NO"])
+THEREFORE_TENANT = os.environ.get("THEREFORE_TENANT", "")
 
 
-def therefore_session():
+def session():
     s = requests.Session()
-    s.auth = (THEREFORE_USERNAME, THEREFORE_PASSWORD)
-    s.headers.update({"Content-Type": "application/json; charset=utf-8"})
+    s.auth = (os.environ["THEREFORE_USERNAME"], os.environ["THEREFORE_PASSWORD"])
+    s.headers["Content-Type"] = "application/json"
     if THEREFORE_TENANT:
         s.headers["TenantName"] = THEREFORE_TENANT
     return s
 
-def therefore_post(session, endpoint, payload):
-    resp = session.post(f"{THEREFORE_BASE_URL}/{endpoint}", json=payload, timeout=60)
-    resp.raise_for_status()
-    return resp.json()
-
-def verify_signature(body: bytes, header: str) -> bool:
-    expected = hmac.new(
-        REDACTOR_WEBHOOK_SECRET.encode(), body, hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(expected, header.removeprefix("sha256="))
-
 
 @app.post("/redactor-callback")
-async def redactor_callback(request: Request):
+async def callback(request: Request):
     body = await request.body()
-    if not verify_signature(body, request.headers.get("X-Redactor-Signature", "")):
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    sig = request.headers.get("X-Redactor-Signature", "")
+    expected = hmac.new(REDACTOR_SECRET.encode(), body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig.removeprefix("sha256=")):
+        raise HTTPException(401)
 
-    payload = await request.json()
-    if payload.get("status") != "completed" or not payload.get("file_data"):
-        return {"ok": True, "skipped": True}
+    data = await request.json()
+    if data.get("status") != "completed" or not data.get("file_data"):
+        return {"ok": True}
 
-    session = therefore_session()
-
-    # Build index data — adjust FieldNo values to match your category definition.
-    # Use POST /restun/GetCategoryInfo {"CategoryNo": N} to list field numbers.
-    index_items = [
-        {"StringIndexData": {"FieldNo": 101, "DataValue": payload["filename"]}},
-        {"StringIndexData": {"FieldNo": 102, "DataValue": payload["job_id"]}},
-    ]
-
-    # PreprocessIndexData — fills defaults, auto-numbering, calculated fields
-    preprocessed = therefore_post(session, "PreprocessIndexData", {
-        "CategoryNo": THEREFORE_CATEGORY_NO,
-        "FillDependentFields": True, "ResetToDefaults": True,
-        "DoCalculateFields": True, "GetAutoAppendIxData": False,
-        "ExcludeReduntantForFillDependentFields": True,
-        "IndexData": {"IndexDataItems": index_items},
-    })
-
-    # CreateDocument — file_data is already base64, pass it through directly
-    result = therefore_post(session, "CreateDocument", {
-        "TheDocument": {
-            "CategoryNo": THEREFORE_CATEGORY_NO,
-            "IndexDataItems": preprocessed["IndexData"]["IndexDataItems"],
-            "Streams": [{
-                "StreamNo": 0,
-                "FileName": payload["file_name"],
-                "FileData": payload["file_data"],
-            }],
-        }
-    })
+    s = session()
+    result = s.post(f"{THEREFORE_BASE}/CreateDocument", json={
+        "CategoryNo": CATEGORY_NO,
+        "IndexDataItems": [
+            {"StringIndexData": {"FieldNo": 101, "DataValue": data["filename"]}},
+        ],
+        "Streams": [{
+            "StreamNo": 0,
+            "FileName": data["file_name"],
+            "FileData": data["file_data"],
+        }],
+    }, timeout=60).json()
     return {"ok": True, "doc_no": result.get("DocNo")}</code></pre>
 
-            <h4>Run the adapter</h4>
-            <pre><code>pip install fastapi uvicorn requests
-
-REDACTOR_WEBHOOK_SECRET=your-shared-secret \
-THEREFORE_BASE_URL=https://acme.thereforeonline.com/theservice/v0001/restun \
-THEREFORE_USERNAME=svc_redactor \
-THEREFORE_PASSWORD=password \
-THEREFORE_CATEGORY_NO=8 \
-uvicorn adapter:app --host 0.0.0.0 --port 8090</code></pre>
-
-            <h4>Or as a Docker service in docker-compose.yml</h4>
-            <pre><code>  adapter:
-    build:
-      context: ./adapter
-    restart: unless-stopped
-    environment:
-      - REDACTOR_WEBHOOK_SECRET=your-shared-secret
-      - THEREFORE_BASE_URL=https://acme.thereforeonline.com/theservice/v0001/restun
-      - THEREFORE_USERNAME=svc_redactor
-      - THEREFORE_PASSWORD=password
-      - THEREFORE_CATEGORY_NO=8
-    ports:
-      - "8090:8090"
-    networks:
-      - internal</code></pre>
-
-            <!-- ── Notes ─────────────────────────────────────────────── -->
             <h3>Notes</h3>
             <ul>
-              <li>
-                <strong>Approach A vs B</strong> — use the template approach when index data
-                is simple or static. Use the adapter when you need
-                <code>PreprocessIndexData</code>, calculated fields, or dynamic keyword lookups.
-              </li>
-              <li>
-                <strong>Field numbers</strong> — in the template or adapter, set
-                <code>FieldNo</code> to match your Therefore category definition. Look them up with:<br>
-                <code>POST /restun/GetCategoryInfo {"CategoryNo": 8, "IsAccessMaskNeeded": false}</code>
-              </li>
-              <li>
-                <strong>Keyword fields</strong> — if the category has mandatory keyword
-                (dropdown) fields, resolve their display values to <code>KeywordNo</code>
-                integers using <code>GetKeywordsByFieldNo</code>. This usually requires the adapter approach.
-              </li>
-              <li>
-                <strong>Therefore Online</strong> — include <code>"TenantName":"acme"</code>
-                in <code>webhook_headers</code> (Approach A) or set <code>THEREFORE_TENANT</code>
-                in the adapter env (Approach B).
-              </li>
-              <li>
-                <strong>Redaction level per document</strong> — Therefore's outgoing REST call
-                can substitute index field values into form parts, so you can map a Therefore
-                field to the <code>level</code> form part to vary redaction level per document.
-              </li>
+              <li><strong>Keyword fields</strong> — if the category has mandatory keyword (dropdown) fields, resolve their values to <code>KeywordNo</code> integers using <code>GetKeywordsByFieldNo</code> before calling <code>CreateDocument</code>. This typically requires the adapter approach.</li>
+              <li><strong>Field numbers</strong> — <code>FieldNo</code> must match your Therefore category definition exactly. Use <code>POST /restun/GetCategoryInfo {"CategoryNo": N, "IsAccessMaskNeeded": false}</code> to list field numbers.</li>
+              <li><strong>Large files</strong> — base64 encoding adds ~33% to file size. For documents over ~20 MB, consider <code>webhook_include_file=false</code> and fetching via the <code>download_url</code> in the standard payload.</li>
+              <li><strong>TenantName</strong> — required for Therefore Online only. Omit for on-premises installations.</li>
+              <li><strong>Testing</strong> — submit a test job via the Upload page with <code>output_mode=webhook</code> and check the Docker logs: <code>docker compose logs -f backend</code>. The full request body sent to Therefore is logged (with base64 file data replaced by a size marker).</li>
             </ul>
-
-            <div class="callout callout-warning">
-              <span class="callout-icon">⚠️</span>
-              <div>
-                <strong>Large files</strong> — base64 inflates file size by ~33%. For documents
-                over ~20 MB, consider setting <code>webhook_include_file=false</code> and
-                fetching the file separately from <code>/api/v1/jobs/{job_id}/download</code>
-                using the <code>download_url</code> in the standard payload.
-              </div>
-            </div>
           </section>
 
-          <!-- Admin -->
           <section id="admin">
             <h2>🔧 Admin Reference</h2>
 
             <h3>Deployment</h3>
-            <pre><code>cp .env.example .env
+            <pre><code>git clone https://github.com/Fybre/redactor
+cd redactor
+cp .env.example .env
 # Edit .env as needed
 docker compose up -d</code></pre>
 
@@ -1112,109 +891,88 @@ docker compose up -d</code></pre>
             <table class="level-table">
               <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td><code>HOST_PORT</code></td><td><code>8080</code></td><td>Host port for the web UI</td></tr>
-                <tr><td><code>WORKER_CONCURRENCY</code></td><td><code>2</code></td><td>Initial concurrency (can be changed via UI)</td></tr>
-                <tr><td><code>FOLDER_POLLING_ENABLED</code></td><td><code>true</code></td><td>Initial polling state</td></tr>
-                <tr><td><code>POLL_INTERVAL_SECONDS</code></td><td><code>15</code></td><td>Initial poll interval</td></tr>
-                <tr><td><code>MAX_FILE_SIZE_MB</code></td><td><code>100</code></td><td>Initial max file size</td></tr>
-                <tr><td><code>DEFAULT_REDACTION_LEVEL</code></td><td><code>standard</code></td><td>Initial default level</td></tr>
-                <tr><td><code>RETAIN_ORIGINALS</code></td><td><code>true</code></td><td>Initial retention setting</td></tr>
-                <tr><td><code>LOG_LEVEL</code></td><td><code>INFO</code></td><td><code>DEBUG</code> / <code>INFO</code> / <code>WARNING</code> / <code>ERROR</code></td></tr>
+                <tr><td><code>HOST_PORT</code></td><td><code>8080</code></td><td>Port the web UI is served on</td></tr>
+                <tr><td><code>WORKER_CONCURRENCY</code></td><td><code>2</code></td><td>Simultaneous redaction jobs</td></tr>
+                <tr><td><code>FOLDER_POLLING_ENABLED</code></td><td><code>true</code></td><td>Watch input folder for new files</td></tr>
+                <tr><td><code>POLL_INTERVAL_SECONDS</code></td><td><code>15</code></td><td>Seconds between folder scans</td></tr>
+                <tr><td><code>MAX_FILE_SIZE_MB</code></td><td><code>100</code></td><td>Maximum accepted upload size</td></tr>
+                <tr><td><code>RETAIN_ORIGINALS</code></td><td><code>true</code></td><td>Keep copies of originals before redacting</td></tr>
+                <tr><td><code>RETENTION_DAYS</code></td><td><code>30</code></td><td>Days to keep original files</td></tr>
+                <tr><td><code>DEFAULT_REDACTION_LEVEL</code></td><td><code>standard</code></td><td>Level used for polled files</td></tr>
+                <tr><td><code>DEFAULT_OUTPUT_MODE</code></td><td><code>directory</code></td><td><code>directory</code> or <code>webhook</code></td></tr>
+                <tr><td><code>LOG_LEVEL</code></td><td><code>INFO</code></td><td><code>DEBUG</code>, <code>INFO</code>, <code>WARNING</code>, <code>ERROR</code></td></tr>
               </tbody>
             </table>
 
-            <div class="callout callout-info">
-              <span class="callout-icon">ℹ️</span>
-              <div>Environment variables set the <em>initial</em> values on first boot. Once the runtime config file exists (<code>/data/runtime_config.json</code>), values changed via the web UI take precedence over environment variables.</div>
-            </div>
-
             <h3>Persisting data to the host filesystem</h3>
-            <p>By default, data is stored in a named Docker volume. To use a host directory instead, edit <code>docker-compose.yml</code>:</p>
+            <p>By default Redactor uses a named Docker volume. To use a host-mounted path instead, edit <code>docker-compose.yml</code>:</p>
             <pre><code>volumes:
   redactor-data:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /srv/redactor/data  # ← your host path</code></pre>
-            <p>Create the directory first: <code>mkdir -p /srv/redactor/data/{input,output,originals,temp}</code></p>
+      device: /srv/redactor/data</code></pre>
 
             <h3>Viewing logs</h3>
-            <pre><code># Follow live logs
-docker compose logs -f backend
-
-# Last 100 lines
-docker compose logs --tail=100 backend</code></pre>
+            <pre><code>docker compose logs -f backend
+docker compose logs -f frontend</code></pre>
 
             <h3>Updating</h3>
-            <pre><code># Rebuild images (e.g. after code changes)
+            <pre><code>git pull
 docker compose build
-docker compose up -d
-
-# Apply environment variable changes
-docker compose down && docker compose up -d</code></pre>
+docker compose up -d</code></pre>
 
             <h3>Accessing the database</h3>
-            <pre><code># Open SQLite shell inside the container
-docker exec -it redactor-backend sqlite3 /data/redactor.db
-
-# Example: count jobs by status
-SELECT status, count(*) FROM jobs GROUP BY status;</code></pre>
+            <pre><code>docker exec -it redactor-backend sqlite3 /data/redactor.db
+.tables
+SELECT id, filename, status, processing_ms FROM jobs ORDER BY created_at DESC LIMIT 10;</code></pre>
 
             <h3>Checking output files from the host</h3>
-            <pre><code># List redacted output files
-docker exec redactor-backend ls /data/output
+            <pre><code># Named volume
+docker run --rm -v redactor_redactor-data:/data alpine ls /data/output
 
-# Copy a file to the host
-docker cp redactor-backend:/data/output/filename_redacted_abc12345.pdf ./</code></pre>
+# Host-mounted volume
+ls /srv/redactor/data/output</code></pre>
 
             <h3>Adding authentication</h3>
-            <p>The API and web UI have no built-in authentication. Before exposing Redactor to a network, put it behind a reverse proxy with authentication:</p>
-            <ul>
-              <li><strong>Caddy</strong> — <code>basicauth</code> directive or forward_auth for OAuth</li>
-              <li><strong>nginx</strong> — <code>auth_basic</code> or <code>auth_request</code> for OAuth</li>
-              <li><strong>Traefik</strong> — BasicAuth or ForwardAuth middleware</li>
-            </ul>
-
-            <h3>nginx <code>client_max_body_size</code></h3>
-            <p>The nginx config sets <code>client_max_body_size 110M</code>. If you increase <code>MAX_FILE_SIZE_MB</code> beyond 100, update this value in <code>frontend/nginx.conf</code> and rebuild the frontend image:</p>
-            <pre><code>docker compose build frontend
-docker compose up -d frontend</code></pre>
+            <p>The API and web UI have no authentication by default. Before exposing Redactor to a network, put a reverse proxy in front with basic auth or OAuth. Example with Caddy:</p>
+            <pre><code>redactor.example.com {
+    basicauth /* {
+        admin JDJhJDE0J...
+    }
+    reverse_proxy localhost:8080
+}</code></pre>
 
             <h3>Resetting all data</h3>
             <div class="callout callout-danger">
-              <span class="callout-icon">🚨</span>
-              <div>This permanently deletes all jobs, redacted files, and configuration.</div>
+              <span class="callout-icon">⚠️</span>
+              <div>This permanently deletes all jobs, files, and configuration. There is no undo.</div>
             </div>
             <pre><code>docker compose down
 docker volume rm redactor_redactor-data
 docker compose up -d</code></pre>
           </section>
 
-        </div>
-      </div>
+        </div><!-- .guide-body -->
+      </div><!-- .guide-layout -->
     </div>
   </div>
 
   <div id="toast-container"></div>
   <script src="/js/api.js?v=3"></script>
   <script>
-    // Highlight active TOC link on scroll
+    // Highlight active TOC entry on scroll
     const sections = document.querySelectorAll('section[id]');
     const tocLinks = document.querySelectorAll('.guide-toc a');
-
-    function updateToc() {
-      let active = '';
-      sections.forEach(s => {
-        if (window.scrollY + 120 >= s.offsetTop) active = s.id;
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          tocLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id));
+        }
       });
-      tocLinks.forEach(a => {
-        a.classList.toggle('active', a.getAttribute('href') === '#' + active);
-      });
-    }
-
-    window.addEventListener('scroll', updateToc, { passive: true });
-    updateToc();
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    sections.forEach(s => observer.observe(s));
   </script>
 </body>
 </html>
