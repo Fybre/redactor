@@ -1,0 +1,21 @@
+# Local config overrides
+.env.local
+
+# Data directory (runtime state, not source)
+data/
+
+# Claude Code project settings
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Docker build cache
+.dockerignore
+
+# OS
+.DS_Store
