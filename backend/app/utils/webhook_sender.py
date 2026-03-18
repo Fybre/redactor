@@ -112,13 +112,16 @@ def build_template_context(job) -> dict:
         "job_id": job.id,
         "filename": job.filename,
         "stem": Path(job.filename).stem,
-        "status": job.status,
-        "level": job.level,
+        "status": str(job.status).split(".")[-1].lower(),   # "completed" not "JobStatus.COMPLETED"
+        "level": str(job.level).split(".")[-1].lower(),     # "standard" not "RedactionLevel.STANDARD"
         "page_count": job.page_count or 0,
         "entities_found": job.entities_found or {},
         "total_entities": sum((job.entities_found or {}).values()),
         "processing_ms": job.processing_ms,
-        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        "completed_at": (
+            job.completed_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if job.completed_at else None
+        ),
         # file data fields — populated below if file is available
         "file_data": "",
         "file_name": "",
