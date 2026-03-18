@@ -185,17 +185,12 @@ async def update_template(name: str, template: TemplateCreate):
     templates = config.setdefault("webhook_templates", {})
     if name not in templates:
         raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
-    entry = {
+    templates[name] = {
         "description": template.description,
         "body": template.body,
         "headers": template.headers or {},
     }
-    logger.info(f"Saving template '{name}' headers: {list(entry['headers'].keys())}")
-    templates[name] = entry
     save_runtime_config(config)
-    # Verify immediately
-    verify = load_runtime_config().get("webhook_templates", {}).get(name, {})
-    logger.info(f"Verified template '{name}' headers after save: {list(verify.get('headers', {}).keys())}")
     return {"status": "updated", "name": name}
 
 

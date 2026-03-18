@@ -298,10 +298,7 @@ async function saveTemplate() {
   const name = document.getElementById('tmpl-name').value.trim();
   const desc = document.getElementById('tmpl-desc').value.trim();
   const body = document.getElementById('tmpl-body').value.trim();
-  const headersEl = document.getElementById('tmpl-headers');
-  const headersRaw = headersEl ? headersEl.value.trim() : '';
-  // Diagnostic: alert what was captured so we can confirm the textarea value
-  console.log(`[saveTemplate] editingTemplate=${editingTemplate} headers textarea length=${headersRaw.length} value=${headersRaw || '(empty)'}`);
+  const headersRaw = document.getElementById('tmpl-headers').value.trim();
   if (!name) { showToast('Template name is required', 'error'); return; }
   if (!body) { showToast('Template body is required', 'error'); return; }
 
