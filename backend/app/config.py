@@ -90,7 +90,7 @@ _DEFAULT_RUNTIME_CONFIG = {
                 '      "DateIndexData": {\n'
                 '        "FieldName": "Redaction_Date",\n'
                 '        "FieldNo": 0,\n'
-                '        "DataISO8601Value": "{{ completed_at }}"\n'
+                '        "DataISO8601Value": "{{ completed_at[:10] }}"\n'
                 '      }\n'
                 '    },\n'
                 '    {\n'
