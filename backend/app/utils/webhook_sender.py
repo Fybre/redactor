@@ -42,7 +42,20 @@ async def send_webhook(
     if extra_headers:
         headers.update(extra_headers)
 
-    timeout = 60.0 if payload.get("file_data") else 15.0
+    timeout = 60.0 if (raw_body and len(raw_body) > 100_000) or payload.get("file_data") else 15.0
+    # Log the full body being sent, redacting any base64 file data to keep logs readable
+    try:
+        log_body = body.decode("utf-8", errors="replace")
+        # Replace large base64 blobs with a size marker
+        import re as _re
+        log_body = _re.sub(
+            r'("(?:FileData|FileDataBase64JSON|file_data)"\s*:\s*)"[A-Za-z0-9+/=]{100,}"',
+            lambda m: m.group(0)[:m.start(1) - m.start(0) + len(m.group(1))] + f'"[base64 {len(m.group(0))} chars]"',
+            log_body,
+        )
+        logger.info(f"Webhook POST to {url}:\n{log_body}")
+    except Exception:
+        logger.info(f"Webhook POST to {url}: {len(body)} bytes")
     async with httpx.AsyncClient(timeout=timeout) as client:
         for attempt in range(max_retries):
             try:
@@ -50,7 +63,9 @@ async def send_webhook(
                 if resp.status_code < 400:
                     logger.info(f"Webhook delivered to {url} (status {resp.status_code})")
                     return True
-                logger.warning(f"Webhook attempt {attempt+1} failed: HTTP {resp.status_code}")
+                logger.warning(
+                    f"Webhook attempt {attempt+1} failed: HTTP {resp.status_code} — {resp.text[:500]}"
+                )
             except Exception as e:
                 logger.warning(f"Webhook attempt {attempt+1} error: {e}")
 
