@@ -1,0 +1,79 @@
+"""
+Routes documents to the appropriate redaction pipeline based on type and content.
+"""
+import logging
+import mimetypes
+import os
+from pathlib import Path
+from typing import Dict, Any, Optional
+
+import fitz
+
+logger = logging.getLogger(__name__)
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp", ".webp"}
+PDF_EXTENSION = ".pdf"
+
+
+def _detect_mime(path: str) -> str:
+    try:
+        import magic
+        return magic.from_file(path, mime=True)
+    except Exception:
+        mime, _ = mimetypes.guess_type(path)
+        return mime or "application/octet-stream"
+
+
+def _pdf_has_text_layer(pdf_path: str, sample_pages: int = 3) -> bool:
+    """
+    Returns True if the PDF has a meaningful text layer on at least
+    one of the sampled pages.
+    """
+    try:
+        doc = fitz.open(pdf_path)
+        pages_to_check = min(sample_pages, doc.page_count)
+        for i in range(pages_to_check):
+            page = doc[i]
+            text = page.get_text("text").strip()
+            area = page.rect.width * page.rect.height
+            if area > 0 and len(text) / area > 0.0005:
+                doc.close()
+                return True
+        doc.close()
+        return False
+    except Exception as e:
+        logger.warning(f"Could not inspect PDF text layer: {e}")
+        return False
+
+
+def process_document(
+    input_path: str,
+    output_path: str,
+    level: str,
+    custom_entities: Optional[list] = None,
+    redaction_color: tuple = (0, 0, 0),
+    ocr_language: str = "eng",
+) -> Dict[str, Any]:
+    """
+    Auto-detect document type and route to the correct redactor.
+    Returns stats dict: {page_count, entities_found}.
+    """
+    from app.core.pdf_redactor import redact_pdf
+    from app.core.image_redactor import redact_image_file
+
+    ext = Path(input_path).suffix.lower()
+    mime = _detect_mime(input_path)
+
+    logger.info(f"Processing {os.path.basename(input_path)} | ext={ext} mime={mime} level={level}")
+
+    if ext == PDF_EXTENSION or mime == "application/pdf":
+        # For PDFs, redact_pdf handles both text-layer pages and scanned pages per-page
+        return redact_pdf(
+            input_path, output_path, level, custom_entities, redaction_color, ocr_language
+        )
+    elif ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
+        return redact_image_file(
+            input_path, output_path, level, custom_entities, redaction_color, ocr_language
+        )
+    else:
+        raise ValueError(f"Unsupported file type: ext={ext}, mime={mime}")

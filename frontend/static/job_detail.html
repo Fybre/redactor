@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redactor — Job Detail</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>🔒 Redactor</h1>
+      <span>Document Redaction Service</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+      <a href="upload.html"><span class="icon">⬆</span> Upload</a>
+      <a href="config.html"><span class="icon">⚙</span> Configuration</a>
+      <a href="guide.html"><span class="icon">📖</span> Guide</a>
+    </nav>
+    <div class="sidebar-bottom">Redactor v1.0</div>
+  </aside>
+
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+          <a href="index.html" style="color:var(--muted);text-decoration:none">Dashboard</a> /
+          Job <span id="job-id-display">…</span>
+        </div>
+        <h2 id="job-filename">Loading…</h2>
+      </div>
+      <a href="index.html" class="btn btn-ghost">← Back</a>
+    </div>
+
+    <div class="content">
+      <div id="job-content">
+        <div style="text-align:center;padding:60px;color:var(--muted)">
+          <div style="font-size:32px;margin-bottom:12px">⏳</div>
+          Loading job details…
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/job_detail.js"></script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redactor — Configuration</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>🔒 Redactor</h1>
+      <span>Document Redaction Service</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+      <a href="upload.html"><span class="icon">⬆</span> Upload</a>
+      <a href="config.html" class="active"><span class="icon">⚙</span> Configuration</a>
+      <a href="guide.html"><span class="icon">📖</span> Guide</a>
+    </nav>
+    <div class="sidebar-bottom">Redactor v1.0</div>
+  </aside>
+
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h2>Configuration</h2>
+        <p>System settings, redaction profiles, and webhook endpoints</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="tabs">
+        <div class="tab active" data-tab="system" onclick="switchTab('system')">System Settings</div>
+        <div class="tab" data-tab="profiles" onclick="switchTab('profiles')">Redaction Profiles</div>
+        <div class="tab" data-tab="webhooks" onclick="switchTab('webhooks')">Webhooks</div>
+        <div class="tab" data-tab="templates" onclick="switchTab('templates')">Webhook Templates</div>
+      </div>
+
+      <!-- System Settings Tab -->
+      <div class="tab-content active" id="tab-system">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+          <div class="card">
+            <div class="card-title">Folder Polling</div>
+            <div class="form-group">
+              <div class="toggle-wrap">
+                <div class="toggle on" id="cfg-polling" data-value="1" onclick="toggleSwitch('cfg-polling')"></div>
+                <span class="toggle-label">Enable automatic folder polling</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Poll Interval (seconds)</label>
+              <input type="number" id="cfg-interval" value="15" min="5" max="3600">
+              <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                Input directory: <code>/data/input</code>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Default Redaction Settings</div>
+            <div class="form-group">
+              <label>Default Redaction Level</label>
+              <select id="cfg-level">
+                <option value="minimal">Minimal — Financial IDs only</option>
+                <option value="standard" selected>Standard — Recommended</option>
+                <option value="aggressive">Aggressive — Dates, locations</option>
+                <option value="maximum">Maximum — All entities</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Default Output Mode</label>
+              <select id="cfg-output-mode">
+                <option value="directory">Save to output directory</option>
+                <option value="webhook">Send to webhook</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">File Retention</div>
+            <div class="form-group">
+              <div class="toggle-wrap">
+                <div class="toggle on" id="cfg-retain" data-value="1" onclick="toggleSwitch('cfg-retain')"></div>
+                <span class="toggle-label">Keep original files</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Retention Period (days)</label>
+              <input type="number" id="cfg-retention-days" value="30" min="1" max="3650">
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Performance</div>
+            <div class="form-group">
+              <label>Worker Concurrency</label>
+              <input type="number" id="cfg-concurrency" value="2" min="1" max="16">
+              <div style="font-size:11px;color:var(--muted);margin-top:4px">Number of simultaneous redaction jobs</div>
+            </div>
+            <div class="form-group">
+              <label>Max File Size (MB)</label>
+              <input type="number" id="cfg-max-size" value="100" min="1" max="2048">
+            </div>
+            <div class="form-group">
+              <label>OCR Language</label>
+              <select id="cfg-ocr-lang">
+                <option value="eng">English (eng)</option>
+                <option value="fra">French (fra)</option>
+                <option value="deu">German (deu)</option>
+                <option value="spa">Spanish (spa)</option>
+                <option value="ita">Italian (ita)</option>
+                <option value="por">Portuguese (por)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button onclick="saveConfig()" class="btn btn-primary">Save Settings</button>
+        </div>
+      </div>
+
+      <!-- Profiles Tab -->
+      <div class="tab-content" id="tab-profiles">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <strong>Custom Redaction Profiles</strong>
+            <p style="color:var(--muted);font-size:13px;margin-top:4px">Save named sets of entity types for reuse</p>
+          </div>
+          <button onclick="openNewProfile()" class="btn btn-primary">+ New Profile</button>
+        </div>
+        <div class="card">
+          <div id="profiles-list">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Templates Tab -->
+      <div class="tab-content" id="tab-templates">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <strong>Webhook Payload Templates</strong>
+            <p style="color:var(--muted);font-size:13px;margin-top:4px">
+              Jinja2 templates that control the exact JSON body posted to a webhook.
+              When a job uses a template, the rendered output replaces the standard payload —
+              perfect for direct Therefore or other DMS integration without an adapter.
+            </p>
+          </div>
+          <button onclick="openNewTemplate()" class="btn btn-primary">+ New Template</button>
+        </div>
+
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">
+            <strong>Available variables:</strong>
+            <code>job_id</code>, <code>filename</code>, <code>stem</code> (filename without extension),
+            <code>status</code>, <code>level</code>, <code>page_count</code>, <code>entities_found</code>,
+            <code>total_entities</code>, <code>processing_ms</code>, <code>completed_at</code>,
+            <code>file_data</code> (base64), <code>file_name</code>, <code>file_size_bytes</code>.
+            Jinja2 filters like <code>| default(value)</code> and <code>| tojson</code> are supported.
+          </div>
+        </div>
+
+        <div class="card">
+          <div id="templates-list">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Webhooks Tab -->
+      <div class="tab-content" id="tab-webhooks">
+        <div style="margin-bottom:16px">
+          <strong>Webhook Endpoints</strong>
+          <p style="color:var(--muted);font-size:13px;margin-top:4px">
+            Registered webhooks receive a signed POST when a job completes.
+            The payload includes job metadata and a download URL.
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Add Webhook</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end">
+            <div class="form-group" style="margin:0">
+              <label>URL *</label>
+              <input type="url" id="wh-url" placeholder="https://example.com/webhook">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Name</label>
+              <input type="text" id="wh-name" placeholder="My Server">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Signing Secret</label>
+              <input type="password" id="wh-secret" placeholder="optional">
+            </div>
+            <button onclick="addWebhook()" class="btn btn-primary">Add</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">
+            If a signing secret is provided, requests include <code>X-Redactor-Signature: sha256=…</code>
+          </div>
+        </div>
+
+        <div class="card">
+          <div id="webhooks-list">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div class="modal-backdrop" id="profile-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">New Profile</h3>
+        <button class="modal-close" onclick="closeProfileModal()">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label>Profile Name *</label>
+        <input type="text" id="modal-profile-name" placeholder="e.g. GDPR Compliance">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="modal-profile-desc" placeholder="Optional description">
+      </div>
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label style="margin:0">Entity Types *</label>
+          <div style="display:flex;gap:6px">
+            <button onclick="document.querySelectorAll('#modal-entity-grid input').forEach(cb=>{cb.checked=true;cb.closest('.entity-checkbox').classList.add('checked')})" class="btn btn-ghost btn-sm">All</button>
+            <button onclick="document.querySelectorAll('#modal-entity-grid input').forEach(cb=>{cb.checked=false;cb.closest('.entity-checkbox').classList.remove('checked')})" class="btn btn-ghost btn-sm">None</button>
+          </div>
+        </div>
+        <div class="entity-grid" id="modal-entity-grid">Loading…</div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button onclick="closeProfileModal()" class="btn btn-ghost">Cancel</button>
+        <button onclick="saveProfile()" class="btn btn-primary">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template Modal -->
+  <div class="modal-backdrop" id="template-modal">
+    <div class="modal" style="max-width:720px;width:90vw">
+      <div class="modal-header">
+        <h3 id="template-modal-title">New Template</h3>
+        <button class="modal-close" onclick="closeTemplateModal()">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label>Template Name *</label>
+        <input type="text" id="tmpl-name" placeholder="e.g. therefore_create_document">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="tmpl-desc" placeholder="Optional description">
+      </div>
+      <div class="form-group">
+        <label>Template Body (Jinja2) *</label>
+        <textarea id="tmpl-body" rows="20" style="font-family:monospace;font-size:12px;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical" placeholder='{ "event": "{{ status }}", "file": "{{ filename }}", ... }'></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button onclick="closeTemplateModal()" class="btn btn-ghost">Cancel</button>
+        <button onclick="saveTemplate()" class="btn btn-primary">Save Template</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/config.js"></script>
+</body>
+</html>

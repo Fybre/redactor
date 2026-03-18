@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: redactor-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////data/redactor.db
+      - INPUT_DIR=/data/input
+      - OUTPUT_DIR=/data/output
+      - ORIGINALS_DIR=/data/originals
+    volumes:
+      - redactor-data:/data
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "8000"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: redactor-frontend
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+volumes:
+  redactor-data:
+    driver: local
+
+networks:
+  internal:
+    driver: bridge

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redactor — Dashboard</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>🔒 Redactor</h1>
+      <span>Document Redaction Service</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html" class="active"><span class="icon">📊</span> Dashboard</a>
+      <a href="upload.html"><span class="icon">⬆</span> Upload</a>
+      <a href="config.html"><span class="icon">⚙</span> Configuration</a>
+      <a href="guide.html"><span class="icon">📖</span> Guide</a>
+    </nav>
+    <div class="sidebar-bottom">Redactor v1.0</div>
+  </aside>
+
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h2>Dashboard</h2>
+        <p>Monitor redaction jobs and system status</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button id="refresh-btn" onclick="toggleAutoRefresh()" class="btn btn-ghost btn-sm">⏸ Pause</button>
+        <a href="upload.html" class="btn btn-primary">+ Upload Document</a>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Jobs Today</div>
+          <div class="stat-value accent" id="stat-today">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">In Queue</div>
+          <div class="stat-value warning" id="stat-queued">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Completed</div>
+          <div class="stat-value success" id="stat-completed">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Entities Redacted</div>
+          <div class="stat-value" id="stat-entities">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div class="card-title" style="margin:0">Recent Jobs</div>
+          <div class="filter-tabs">
+            <button class="filter-tab active" data-status="" onclick="setFilter('')">All</button>
+            <button class="filter-tab" data-status="queued" onclick="setFilter('queued')">Queued</button>
+            <button class="filter-tab" data-status="processing" onclick="setFilter('processing')">Processing</button>
+            <button class="filter-tab" data-status="completed" onclick="setFilter('completed')">Completed</button>
+            <button class="filter-tab" data-status="failed" onclick="setFilter('failed')">Failed</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Status</th>
+                <th>Level</th>
+                <th>Source</th>
+                <th>Entities</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

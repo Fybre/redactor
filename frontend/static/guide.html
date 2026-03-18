@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redactor — User &amp; Admin Guide</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .guide-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    .guide-toc {
+      position: sticky;
+      top: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 0;
+    }
+
+    .guide-toc-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      padding: 0 16px 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+
+    .guide-toc a {
+      display: block;
+      padding: 6px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .guide-toc a:hover { color: var(--text); }
+    .guide-toc a.active { color: var(--text); border-left-color: var(--accent); background: var(--surface2); }
+    .guide-toc a.sub { padding-left: 28px; font-size: 12px; }
+
+    .guide-body section {
+      margin-bottom: 48px;
+      scroll-margin-top: 80px;
+    }
+
+    .guide-body h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .guide-body h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 24px 0 10px;
+      color: var(--text);
+    }
+
+    .guide-body h4 {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 18px 0 8px;
+      color: var(--accent);
+    }
+
+    .guide-body p {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .guide-body ul, .guide-body ol {
+      padding-left: 20px;
+      margin-bottom: 14px;
+    }
+
+    .guide-body li {
+      font-size: 14px;
+      line-height: 1.7;
+      margin-bottom: 4px;
+    }
+
+    .guide-body code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      color: #7b9eff;
+    }
+
+    .guide-body pre {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      overflow-x: auto;
+      margin-bottom: 16px;
+    }
+
+    .guide-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .callout {
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      display: flex;
+      gap: 12px;
+    }
+    .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .callout-info    { background: rgba(79,110,247,.1); border: 1px solid rgba(79,110,247,.3); }
+    .callout-warning { background: rgba(243,156,18,.1); border: 1px solid rgba(243,156,18,.3); }
+    .callout-tip     { background: rgba(46,204,113,.1); border: 1px solid rgba(46,204,113,.3); }
+    .callout-danger  { background: rgba(226,74,74,.1);  border: 1px solid rgba(226,74,74,.3); }
+
+    .level-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .level-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+    }
+    .level-table td {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .level-table tr:hover td { background: var(--surface2); }
+
+    .steps { counter-reset: step; display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .step-num {
+      counter-increment: step;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-content { flex: 1; }
+    .step-content strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    .step-content p { margin: 0; color: var(--muted); }
+
+    .entity-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .entity-pill {
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .entity-pill.highlight { background: rgba(79,110,247,.15); border-color: rgba(79,110,247,.4); color: #7b9eff; }
+
+    .api-method {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: monospace;
+      margin-right: 6px;
+    }
+    .method-post { background: rgba(46,204,113,.2); color: #2ecc71; }
+    .method-get  { background: rgba(79,110,247,.2); color: #7b9eff; }
+    .method-del  { background: rgba(226,74,74,.2);  color: #e24a4a; }
+    .method-put  { background: rgba(243,156,18,.2); color: #f8c471; }
+
+    .api-endpoint {
+      padding: 12px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .guide-layout { grid-template-columns: 1fr; }
+      .guide-toc { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>🔒 Redactor</h1>
+      <span>Document Redaction Service</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+      <a href="upload.html"><span class="icon">⬆</span> Upload</a>
+      <a href="config.html"><span class="icon">⚙</span> Configuration</a>
+      <a href="guide.html" class="active"><span class="icon">📖</span> Guide</a>
+    </nav>
+    <div class="sidebar-bottom">Redactor v1.0</div>
+  </aside>
+
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h2>User &amp; Admin Guide</h2>
+        <p>Everything you need to know about using and administering Redactor</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="guide-layout">
+
+        <!-- Table of contents -->
+        <div class="guide-toc">
+          <div class="guide-toc-title">Contents</div>
+          <a href="#overview">Overview</a>
+          <a href="#quick-start">Quick Start</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#redaction-levels">Redaction Levels</a>
+          <a href="#uploading">Uploading Documents</a>
+          <a href="#folder-polling">Folder Polling</a>
+          <a href="#jobs">Managing Jobs</a>
+          <a href="#profiles">Custom Profiles</a>
+          <a href="#webhooks">Webhooks</a>
+          <a href="#rest-api">REST API</a>
+          <a href="#configuration">Configuration</a>
+          <a href="#therefore">Therefore Integration</a>
+          <a href="#admin">Admin Reference</a>
+        </div>
+
+        <!-- Main content -->
+        <div class="guide-body">
+
+          <!-- Overview -->
+          <section id="overview">
+            <h2>📄 Overview</h2>
+            <p>
+              Redactor is a self-hosted service that automatically detects and removes personally identifiable
+              information (PII) from PDF documents and images. It supports two ways to submit documents
+              (REST API upload or folder polling) and two ways to receive results (saved to an output
+              directory or delivered via webhook).
+            </p>
+            <p>Redaction is performed at two levels simultaneously:</p>
+            <ul>
+              <li><strong>Visual</strong> — PII is covered with solid black boxes in the rendered document</li>
+              <li><strong>Text layer</strong> — for text-based PDFs, the underlying text is permanently removed from the PDF content stream so it cannot be extracted by copy/paste or PDF analysis tools</li>
+            </ul>
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ️</span>
+              <div>Scanned documents and images are redacted visually using OCR to locate PII. The text layer of scanned PDFs is replaced with the redacted image, so no recoverable text remains.</div>
+            </div>
+          </section>
+
+          <!-- Quick Start -->
+          <section id="quick-start">
+            <h2>🚀 Quick Start</h2>
+
+            <h3>Uploading your first document</h3>
+            <div class="steps">
+              <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <strong>Go to the Upload page</strong>
+                  <p>Click <strong>Upload</strong> in the sidebar, or use the <strong>+ Upload Document</strong> button on the dashboard.</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <strong>Select a file</strong>
+                  <p>Drag and drop a PDF, PNG, JPG, or TIFF file onto the drop zone, or click it to browse. Multiple files can be queued at once.</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <strong>Choose a redaction level</strong>
+                  <p><strong>Standard</strong> is recommended for most use cases — it covers names, emails, phone numbers, and financial identifiers. See the Redaction Levels section below for the full breakdown.</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                  <strong>Submit</strong>
+                  <p>Click <strong>Submit for Redaction</strong>. The job is queued immediately and processing begins within seconds.</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">5</div>
+                <div class="step-content">
+                  <strong>Download the result</strong>
+                  <p>From the dashboard or job detail page, click <strong>Download Redacted</strong> once the job status shows <span class="badge badge-completed">completed</span>.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- How it works -->
+          <section id="how-it-works">
+            <h2>⚙️ How It Works</h2>
+
+            <h3>Text-based PDFs</h3>
+            <p>For PDFs created digitally (not scanned), Redactor uses PyMuPDF to extract the text layer with precise bounding boxes for every word. Presidio NLP analysis runs on the full page text to identify PII spans. Each detected span is mapped back to its word bounding boxes and a <em>redact annotation</em> is applied.</p>
+            <p>PyMuPDF's <code>apply_redactions()</code> then permanently removes the characters from the PDF content stream — the black box you see is not just painted on top, the text underneath is gone. Saving with garbage collection removes all orphaned objects from the file.</p>
+
+            <h3>Scanned PDFs &amp; Images</h3>
+            <p>For scanned documents and images, Redactor renders each page at 300 DPI, runs Tesseract OCR to extract words and their pixel bounding boxes, then maps PII detections back to pixel coordinates and draws filled black rectangles over them. For PDFs, the original page content is replaced with the redacted image.</p>
+
+            <h3>Mixed documents</h3>
+            <p>Each page in a PDF is assessed individually. Pages with a real text layer use the text pipeline; pages without (scanned pages embedded in a hybrid document) use the OCR pipeline. The output is a single PDF with both types of pages correctly redacted.</p>
+
+            <h3>PII detection engine</h3>
+            <p>Detection uses <a href="https://microsoft.github.io/presidio/" style="color:var(--accent)">Microsoft Presidio</a> backed by the spaCy <code>en_core_web_lg</code> NLP model. Presidio combines rule-based pattern matching (for structured data like credit card numbers and SSNs) with NLP-based named entity recognition (for unstructured text like names and locations).</p>
+          </section>
+
+          <!-- Redaction levels -->
+          <section id="redaction-levels">
+            <h2>🛡 Redaction Levels</h2>
+            <p>Each level is a superset of the previous — choosing Aggressive includes everything in Standard, and so on.</p>
+
+            <table class="level-table">
+              <thead>
+                <tr>
+                  <th>Level</th>
+                  <th>Use case</th>
+                  <th>Entity types added</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="badge badge-minimal">Minimal</span></td>
+                  <td>High-confidence financial and government IDs only</td>
+                  <td>
+                    <div class="entity-pills">
+                      <span class="entity-pill highlight">CREDIT_CARD</span>
+                      <span class="entity-pill highlight">US_SSN</span>
+                      <span class="entity-pill highlight">IBAN_CODE</span>
+                      <span class="entity-pill highlight">US_BANK_NUMBER</span>
+                      <span class="entity-pill highlight">US_PASSPORT</span>
+                      <span class="entity-pill">UK_NHS</span>
+                      <span class="entity-pill">IN_AADHAAR</span>
+                      <span class="entity-pill">IN_PAN</span>
+                      <span class="entity-pill">AU_TFN</span>
+                      <span class="entity-pill">SG_NRIC_FIN</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="badge badge-standard">Standard</span></td>
+                  <td>General data privacy — recommended for most documents</td>
+                  <td>
+                    <div class="entity-pills">
+                      <span class="entity-pill highlight">PERSON</span>
+                      <span class="entity-pill highlight">EMAIL_ADDRESS</span>
+                      <span class="entity-pill highlight">PHONE_NUMBER</span>
+                      <span class="entity-pill">US_DRIVER_LICENSE</span>
+                      <span class="entity-pill">IP_ADDRESS</span>
+                      <span class="entity-pill">MEDICAL_LICENSE</span>
+                      <span class="entity-pill">US_ITIN</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="badge badge-aggressive">Aggressive</span></td>
+                  <td>GDPR / privacy-sensitive documents</td>
+                  <td>
+                    <div class="entity-pills">
+                      <span class="entity-pill highlight">LOCATION</span>
+                      <span class="entity-pill highlight">DATE_TIME</span>
+                      <span class="entity-pill highlight">URL</span>
+                      <span class="entity-pill">NRP</span>
+                      <span class="entity-pill">AU_ABN</span>
+                      <span class="entity-pill">AU_ACN</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="badge badge-maximum">Maximum</span></td>
+                  <td>Highly sensitive documents — redacts nearly all entities</td>
+                  <td>
+                    <div class="entity-pills">
+                      <span class="entity-pill highlight">ORGANIZATION</span>
+                      <span class="entity-pill highlight">MONEY</span>
+                      <span class="entity-pill">AGE</span>
+                      <span class="entity-pill">FACILITY</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="badge badge-custom">Custom</span></td>
+                  <td>Precise control — choose any combination of entity types</td>
+                  <td>User-defined — see <a href="#profiles" style="color:var(--accent)">Custom Profiles</a></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠️</span>
+              <div>Higher levels increase processing time and may produce false positives. For example, <strong>Maximum</strong> will redact all dates and monetary values — useful for anonymisation but may remove non-sensitive context. Review output carefully at higher levels.</div>
+            </div>
+          </section>
+
+          <!-- Uploading -->
+          <section id="uploading">
+            <h2>⬆️ Uploading Documents</h2>
+
+            <h3>Web UI</h3>
+            <p>The <a href="upload.html" style="color:var(--accent)">Upload page</a> supports drag-and-drop or click-to-browse for PDF, PNG, JPG, JPEG, TIFF, and BMP files. Multiple files can be queued before submitting — they are uploaded and processed individually.</p>
+
+            <h4>Options on upload</h4>
+            <ul>
+              <li><strong>Redaction level</strong> — choose from the five levels, or select Custom and tick individual entity types</li>
+              <li><strong>Profile</strong> — select a saved profile to pre-populate the custom entity checkboxes</li>
+              <li><strong>Output mode</strong> — <em>Save to output directory</em> (default) or <em>Send to webhook</em> (enter a URL)</li>
+            </ul>
+
+            <h3>REST API</h3>
+            <p>Submit via <code>multipart/form-data</code> POST to <code>/api/v1/jobs/upload</code>:</p>
+            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
+  -F file=@report.pdf \
+  -F level=standard \
+  -F output_mode=directory</code></pre>
+
+            <p>With custom entity types:</p>
+            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
+  -F file=@report.pdf \
+  -F level=custom \
+  -F 'custom_entities=["PERSON","EMAIL_ADDRESS","PHONE_NUMBER"]' \
+  -F output_mode=directory</code></pre>
+
+            <p>With webhook delivery:</p>
+            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
+  -F file=@report.pdf \
+  -F level=aggressive \
+  -F output_mode=webhook \
+  -F webhook_url=https://your-server.com/hook</code></pre>
+
+            <h4>Supported formats</h4>
+            <ul>
+              <li><strong>PDF</strong> — text-layer PDFs and scanned/image PDFs, including mixed documents</li>
+              <li><strong>PNG, JPG, JPEG, TIFF, TIF, BMP</strong> — redacted using OCR</li>
+            </ul>
+          </section>
+
+          <!-- Folder polling -->
+          <section id="folder-polling">
+            <h2>📁 Folder Polling</h2>
+            <p>When folder polling is enabled, Redactor watches the <code>/data/input</code> directory and automatically submits any new files it finds. This is useful for integrating with other systems that drop files into a shared folder.</p>
+
+            <h3>How to drop files</h3>
+            <p>From the Docker host, copy files into the container's input directory:</p>
+            <pre><code># Using docker cp
+docker cp document.pdf redactor-backend:/data/input/
+
+# Using docker exec and a bind-mounted host directory
+cp /local/path/document.pdf /host/mount/input/</code></pre>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>For production use, mount a host directory into the container so you can write files directly from the host filesystem. See the <a href="#admin" style="color:var(--accent)">Admin Reference</a> for how to configure bind mounts.</div>
+            </div>
+
+            <h3>How polling works</h3>
+            <ul>
+              <li>The poller runs at the configured interval (default 15 seconds)</li>
+              <li>Each file's SHA-256 hash is recorded — the same file is never processed twice even if re-copied</li>
+              <li>After pickup, files are moved out of <code>/data/input</code> and stored in <code>/data/originals</code></li>
+              <li>Polled files use the system's <strong>default redaction level</strong> and <strong>default output mode</strong>, configurable on the <a href="config.html" style="color:var(--accent)">Configuration page</a></li>
+            </ul>
+
+            <h3>Enabling / disabling polling</h3>
+            <p>Go to <strong>Configuration → System Settings</strong> and toggle <em>Enable automatic folder polling</em>. Changes take effect at the next poll cycle — no restart required.</p>
+          </section>
+
+          <!-- Jobs -->
+          <section id="jobs">
+            <h2>📋 Managing Jobs</h2>
+
+            <h3>Job statuses</h3>
+            <ul>
+              <li><span class="badge badge-queued">queued</span> — waiting for a worker slot</li>
+              <li><span class="badge badge-processing">processing</span> — redaction in progress</li>
+              <li><span class="badge badge-completed">completed</span> — redacted file is ready for download</li>
+              <li><span class="badge badge-failed">failed</span> — an error occurred; see the job detail page for the error message</li>
+              <li><span class="badge badge-cancelled">cancelled</span> — the job was deleted before processing started</li>
+            </ul>
+
+            <h3>Dashboard</h3>
+            <p>The <a href="index.html" style="color:var(--accent)">Dashboard</a> shows all jobs with live auto-refresh (every 5 seconds). Use the filter tabs to narrow by status. Click <strong>View</strong> to see the full job detail, or <strong>⬇</strong> to download a completed job directly.</p>
+
+            <h3>Job detail page</h3>
+            <p>The job detail page shows:</p>
+            <ul>
+              <li>Full job metadata (file name, ID, level, source, processing time)</li>
+              <li>Entity breakdown — a bar chart of how many instances of each entity type were found</li>
+              <li>Full JSON report from the API</li>
+              <li>Download buttons for the redacted file and (if retention is on) the original</li>
+            </ul>
+
+            <h3>Retrying failed jobs</h3>
+            <p>If a job fails (e.g. due to a corrupted file or temporary error), open the job detail page and click <strong>↺ Retry</strong>. The job is re-queued with the same settings. You can also retry via the API:</p>
+            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/{job_id}/retry</code></pre>
+
+            <h3>Deleting jobs</h3>
+            <p>Deleting a job removes its database record and both the input and output files. Queued jobs are cancelled instead of immediately deleted. Jobs that are currently processing cannot be deleted.</p>
+          </section>
+
+          <!-- Profiles -->
+          <section id="profiles">
+            <h2>📋 Custom Redaction Profiles</h2>
+            <p>Profiles let you save a named set of entity types so you don't have to re-select them for every job. A profile is equivalent to the <strong>Custom</strong> level with a pre-defined entity list.</p>
+
+            <h3>Creating a profile</h3>
+            <div class="steps">
+              <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <strong>Open Configuration → Redaction Profiles</strong>
+                  <p>Click the <strong>+ New Profile</strong> button.</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <strong>Name the profile and select entities</strong>
+                  <p>Give it a descriptive name (e.g. "GDPR Essentials"), optionally add a description, and tick the entity types to include.</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <strong>Save</strong>
+                  <p>The profile is immediately available on the Upload page's profile dropdown.</p>
+                </div>
+              </div>
+            </div>
+
+            <h3>Using a profile on upload</h3>
+            <p>On the Upload page, select <strong>Custom</strong> level, then choose the profile from the "Or use a saved profile" dropdown. The entity checkboxes are pre-populated from the profile.</p>
+            <p>Via the API:</p>
+            <pre><code>curl -X POST http://localhost:8080/api/v1/jobs/upload \
+  -F file=@document.pdf \
+  -F profile_name="GDPR Essentials"</code></pre>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>Set a profile as the system default on the Configuration page so all polled files automatically use it.</div>
+            </div>
+          </section>
+
+          <!-- Webhooks -->
+          <section id="webhooks">
+            <h2>🔔 Webhooks</h2>
+            <p>Webhooks let external systems receive a notification as soon as a job completes, including a URL to download the redacted file.</p>
+
+            <h3>Registering a webhook</h3>
+            <p>Go to <strong>Configuration → Webhooks</strong> and fill in the URL, an optional display name, and an optional signing secret. Click <strong>Add</strong>.</p>
+            <p>Alternatively, via the API:</p>
+            <pre><code>curl -X POST http://localhost:8080/api/v1/config/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-server.com/hook", "name": "My Server", "secret": "s3cret"}'</code></pre>
+
+            <h3>Webhook payload</h3>
+            <p>Redactor sends a JSON POST to your endpoint when a job completes:</p>
+            <pre><code>{
+  "event": "job.completed",
+  "job_id": "a1b2c3d4-...",
+  "filename": "document.pdf",
+  "status": "completed",
+  "level": "standard",
+  "page_count": 3,
+  "entities_found": {"PERSON": 4, "EMAIL_ADDRESS": 2},
+  "processing_ms": 1842,
+  "completed_at": "2026-03-18T10:00:01Z",
+  "download_url": "http://redactor-host/api/v1/jobs/a1b2c3d4-.../download"
+}</code></pre>
+
+            <h3>Verifying signatures</h3>
+            <p>If a signing secret is set, each request includes an HMAC-SHA256 signature:</p>
+            <pre><code>X-Redactor-Signature: sha256=abc123...
+X-Redactor-Timestamp: 1710756001</code></pre>
+            <p>Verify in Python:</p>
+            <pre><code>import hmac, hashlib
+
+def verify(body: bytes, secret: str, header: str) -> bool:
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    received = header.removeprefix("sha256=")
+    return hmac.compare_digest(expected, received)</code></pre>
+
+            <h3>Retries</h3>
+            <p>If your endpoint returns a non-2xx response or is unreachable, Redactor retries up to 3 times with exponential backoff (1s, 2s, 4s). After 3 failures the delivery is marked as failed in the job record.</p>
+
+            <h3>Testing a webhook</h3>
+            <p>On the Configuration → Webhooks tab, click <strong>Test</strong> next to any registered webhook. A test payload is sent immediately and the result (success or failure) is shown as a notification.</p>
+          </section>
+
+          <!-- REST API -->
+          <section id="rest-api">
+            <h2>🔌 REST API Reference</h2>
+            <p>All endpoints are under <code>/api/v1</code>. The UI is served at the root path by nginx, which reverse-proxies <code>/api/</code> to the backend.</p>
+
+            <h3>Jobs</h3>
+
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/jobs/upload</div>
+            <p>Submit a document for redaction. Accepts <code>multipart/form-data</code>. Returns <code>{"job_id": "...", "status": "queued"}</code>.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs</div>
+            <p>List jobs. Query params: <code>status</code>, <code>page</code> (default 1), <code>per_page</code> (default 20, max 100).</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}</div>
+            <p>Get full job detail including entity counts.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}/download</div>
+            <p>Download the redacted output file. Only available when status is <code>completed</code>.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}/original</div>
+            <p>Download the original file (only if retention is enabled).</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/jobs/{job_id}/report</div>
+            <p>Get JSON redaction report (entity breakdown, page count, timing).</p>
+
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/jobs/{job_id}/retry</div>
+            <p>Re-queue a failed or cancelled job.</p>
+
+            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/api/v1/jobs/{job_id}</div>
+            <p>Delete a job and its files. Cancels queued jobs; cannot delete jobs currently processing.</p>
+
+            <h3>Configuration</h3>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config</div>
+            <p>Get the current runtime configuration object.</p>
+
+            <div class="api-endpoint"><span class="api-method method-put">PUT</span>/api/v1/config</div>
+            <p>Update runtime configuration. Changes are written to <code>/data/runtime_config.json</code> and take effect immediately.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config/entities</div>
+            <p>List all supported entity types with human-readable descriptions.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config/profiles</div>
+            <p>List all saved custom profiles.</p>
+
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/config/profiles</div>
+            <p>Create a new profile. Body: <code>{"name": "...", "entities": [...], "description": "..."}</code>.</p>
+
+            <div class="api-endpoint"><span class="api-method method-del">DELETE</span>/api/v1/config/profiles/{name}</div>
+            <p>Delete a profile by name.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/config/webhooks</div>
+            <p>List registered webhook endpoints.</p>
+
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/config/webhooks</div>
+            <p>Register a webhook. Body: <code>{"url": "...", "name": "...", "secret": "...", "enabled": true}</code>.</p>
+
+            <div class="api-endpoint"><span class="api-method method-post">POST</span>/api/v1/config/webhooks/{id}/test</div>
+            <p>Send a test payload to a webhook endpoint.</p>
+
+            <h3>System</h3>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/health</div>
+            <p>Liveness check. Returns <code>{"status": "ok", "db": "ok"}</code>.</p>
+
+            <div class="api-endpoint"><span class="api-method method-get">GET</span>/api/v1/stats</div>
+            <p>Aggregate statistics: job counts by status, total entities found, total pages processed, average processing time.</p>
+          </section>
+
+          <!-- Configuration -->
+          <section id="configuration">
+            <h2>⚙️ Configuration Reference</h2>
+            <p>All settings on the <a href="config.html" style="color:var(--accent)">Configuration page</a> are stored in <code>/data/runtime_config.json</code> and take effect immediately without a restart.</p>
+
+            <h3>System Settings</h3>
+            <table class="level-table">
+              <thead><tr><th>Setting</th><th>Default</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td>Folder polling enabled</td><td>On</td><td>Watch <code>/data/input</code> for new files</td></tr>
+                <tr><td>Poll interval</td><td>15 seconds</td><td>How often to scan the input directory</td></tr>
+                <tr><td>Default redaction level</td><td>Standard</td><td>Level applied to polled files and API uploads that don't specify one</td></tr>
+                <tr><td>Default output mode</td><td>Directory</td><td>Where polled file results are delivered</td></tr>
+                <tr><td>Keep original files</td><td>On</td><td>Retain a copy of the original document alongside the redacted version</td></tr>
+                <tr><td>Retention period</td><td>30 days</td><td>How long to keep original files (automatic cleanup not yet implemented — manual deletion required)</td></tr>
+                <tr><td>Worker concurrency</td><td>2</td><td>Number of documents processed simultaneously</td></tr>
+                <tr><td>Max file size</td><td>100 MB</td><td>Maximum upload size accepted by the API</td></tr>
+                <tr><td>OCR language</td><td>English</td><td>Tesseract language used for scanned content</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠️</span>
+              <div>Increasing <strong>Worker concurrency</strong> above the number of available CPU cores may cause slowdowns rather than speedups, as OCR and NLP are CPU-bound operations.</div>
+            </div>
+          </section>
+
+          <!-- Therefore Integration -->
+          <section id="therefore">
+            <h2>🗂 Therefore™ Integration</h2>
+            <p>
+              This section covers the full round-trip workflow between Therefore and Redactor.
+              There are two approaches — choose the one that fits your category setup.
+            </p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+              <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius);padding:16px">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--accent)">Approach A — Webhook Template</div>
+                <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Redactor posts directly to Therefore's CreateDocument endpoint. No adapter service required.</div>
+                <div style="font-family:monospace;font-size:11px;line-height:1.8">
+                  Therefore ─▶ <span style="color:var(--accent)">Redactor</span> ─▶ <span style="color:var(--success)">Therefore CreateDocument</span>
+                </div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+                <div style="font-weight:700;margin-bottom:6px">Approach B — Adapter Service</div>
+                <div style="font-size:13px;color:var(--muted);margin-bottom:10px">A small service reshapes the payload. Use when you need PreprocessIndexData or dynamic keyword lookups.</div>
+                <div style="font-family:monospace;font-size:11px;line-height:1.8">
+                  Therefore ─▶ <span style="color:var(--accent)">Redactor</span> ─▶ <span style="color:var(--warning)">Adapter</span> ─▶ <span style="color:var(--success)">Therefore CreateDocument</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Approach A ──────────────────────────────────────────── -->
+            <h3>Approach A — Webhook Template (no adapter)</h3>
+
+            <h4>Step 1A — Create the webhook template</h4>
+            <p>
+              Go to <strong>Configuration → Webhook Templates</strong> and open the pre-loaded
+              <code>therefore_create_document</code> template (or create a new one). The body
+              is Jinja2 JSON that maps Redactor job variables directly to Therefore's
+              <code>CreateDocument</code> structure:
+            </p>
+            <pre><code>{
+  "CategoryNo": {{ category_no | default(57) }},
+  "CheckInComments": "Redacted by Redactor — {{ filename }}",
+  "IndexDataItems": [
+    {
+      "StringIndexData": {
+        "FieldName": "Document_Name",
+        "FieldNo": 0,
+        "DataValue": "{{ stem }}"
+      }
+    },
+    {
+      "StringIndexData": {
+        "FieldName": "Redaction_Level",
+        "FieldNo": 0,
+        "DataValue": "{{ level }}"
+      }
+    },
+    {
+      "StringIndexData": {
+        "FieldName": "Job_ID",
+        "FieldNo": 0,
+        "DataValue": "{{ job_id }}"
+      }
+    },
+    {
+      "DateIndexData": {
+        "FieldName": "Redaction_Date",
+        "FieldNo": 0,
+        "DataISO8601Value": "{{ completed_at }}"
+      }
+    },
+    {
+      "IntIndexData": {
+        "FieldName": "Page_Count",
+        "FieldNo": 0,
+        "DataValue": {{ page_count }}
+      }
+    }
+  ],
+  "Streams": [
+    {% if file_data %}
+    {
+      "FileName": "{{ file_name }}",
+      "FileDataBase64JSON": "{{ file_data }}",
+      "NewStreamInsertMode": 0
+    }
+    {% endif %}
+  ],
+  "DoFillDependentFields": true
+}</code></pre>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ️</span>
+              <div>
+                <strong>Available template variables:</strong>
+                <code>job_id</code>, <code>filename</code>, <code>stem</code> (without extension),
+                <code>status</code>, <code>level</code>, <code>page_count</code>,
+                <code>entities_found</code>, <code>total_entities</code>, <code>processing_ms</code>,
+                <code>completed_at</code>, <code>file_data</code> (base64), <code>file_name</code>,
+                <code>file_size_bytes</code>. Jinja2 filters like <code>| default(value)</code> are supported.
+              </div>
+            </div>
+
+            <h4>Step 2A — Therefore sends the document to Redactor</h4>
+            <p>
+              Configure Therefore's outgoing REST call to POST to Redactor's upload endpoint,
+              setting <code>webhook_url</code> to Therefore's own <code>CreateDocument</code>
+              endpoint and <code>webhook_template</code> to the template name. Therefore's
+              auth credentials go in <code>webhook_headers</code>.
+            </p>
+            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload
+Content-Type: multipart/form-data; boundary=----ThereforeBoundary
+
+------ThereforeBoundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+&lt;binary file content&gt;
+------ThereforeBoundary
+Content-Disposition: form-data; name="level"
+
+standard
+------ThereforeBoundary
+Content-Disposition: form-data; name="output_mode"
+
+webhook
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_url"
+
+https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_template"
+
+therefore_create_document
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_include_file"
+
+true
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_headers"
+
+{"Authorization":"Basic c3ZjX3JlZGFjdG9yOnBhc3N3b3Jk","TenantName":"acme","Content-Type":"application/json"}
+------ThereforeBoundary--</code></pre>
+
+            <p style="font-size:13px;color:var(--muted)">
+              <code>Authorization</code> is Basic auth — <code>base64(username:password)</code>.
+              <code>TenantName</code> is only required for Therefore Online — set it to your subdomain prefix.
+            </p>
+
+            <h4>Equivalent curl (for testing)</h4>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
+  -F file=@invoice.pdf \
+  -F level=standard \
+  -F output_mode=webhook \
+  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument \
+  -F webhook_template=therefore_create_document \
+  -F webhook_include_file=true \
+  -F 'webhook_headers={"Authorization":"Basic c3ZjX3JlZGFjdG9yOnBhc3N3b3Jk","TenantName":"acme","Content-Type":"application/json"}'</code></pre>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ️</span>
+              <div>
+                Redactor queues the job, renders the template on completion, and POSTs the
+                result directly to Therefore's <code>CreateDocument</code> — no adapter service needed.
+              </div>
+            </div>
+
+            <!-- ── Approach B ──────────────────────────────────────────── -->
+            <h3>Approach B — Adapter Service</h3>
+            <p>
+              Use this when you need <code>PreprocessIndexData</code> (auto-numbering,
+              calculated fields, mandatory keyword lookups) before calling
+              <code>CreateDocument</code>, or when index data requires logic beyond what
+              templates can express.
+            </p>
+
+            <h4>Step 1B — Therefore sends the document to Redactor</h4>
+            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload
+Content-Type: multipart/form-data; boundary=----ThereforeBoundary
+
+------ThereforeBoundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+&lt;binary file content&gt;
+------ThereforeBoundary
+Content-Disposition: form-data; name="level"
+
+standard
+------ThereforeBoundary
+Content-Disposition: form-data; name="output_mode"
+
+webhook
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_url"
+
+http://adapter-host:8090/redactor-callback
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_include_file"
+
+true
+------ThereforeBoundary
+Content-Disposition: form-data; name="webhook_secret"
+
+your-shared-secret
+------ThereforeBoundary--</code></pre>
+
+            <h4>Equivalent curl</h4>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
+  -F file=@invoice.pdf \
+  -F level=standard \
+  -F output_mode=webhook \
+  -F webhook_url=http://adapter-host:8090/redactor-callback \
+  -F webhook_include_file=true \
+  -F webhook_secret=your-shared-secret</code></pre>
+
+            <h4>Step 2B — Redactor delivers the standard payload to the adapter</h4>
+            <p>When the job completes, Redactor POSTs its standard JSON payload (HMAC-signed) to the adapter:</p>
+            <pre><code>{
+  "event": "job.completed",
+  "job_id": "a1b2c3d4-...",
+  "filename": "invoice.pdf",
+  "status": "completed",
+  "level": "standard",
+  "page_count": 3,
+  "entities_found": { "PERSON": 4, "EMAIL_ADDRESS": 2 },
+  "processing_ms": 2341,
+  "completed_at": "2026-03-18T12:00:01Z",
+  "file_name": "invoice_redacted_a1b2c3d4.pdf",
+  "file_size_bytes": 94208,
+  "file_data": "JVBERi0xLjQKJeLjz9MKN..."
+}</code></pre>
+
+            <h4>Step 3B — The adapter saves the document back to Therefore</h4>
+            <pre><code>import hashlib, hmac, os, requests
+from fastapi import FastAPI, Request, HTTPException
+
+app = FastAPI()
+
+REDACTOR_WEBHOOK_SECRET = os.environ["REDACTOR_WEBHOOK_SECRET"]
+THEREFORE_BASE_URL      = os.environ["THEREFORE_BASE_URL"]
+THEREFORE_USERNAME      = os.environ["THEREFORE_USERNAME"]
+THEREFORE_PASSWORD      = os.environ["THEREFORE_PASSWORD"]
+THEREFORE_TENANT        = os.environ.get("THEREFORE_TENANT", "")
+THEREFORE_CATEGORY_NO   = int(os.environ["THEREFORE_CATEGORY_NO"])
+
+
+def therefore_session():
+    s = requests.Session()
+    s.auth = (THEREFORE_USERNAME, THEREFORE_PASSWORD)
+    s.headers.update({"Content-Type": "application/json; charset=utf-8"})
+    if THEREFORE_TENANT:
+        s.headers["TenantName"] = THEREFORE_TENANT
+    return s
+
+def therefore_post(session, endpoint, payload):
+    resp = session.post(f"{THEREFORE_BASE_URL}/{endpoint}", json=payload, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+def verify_signature(body: bytes, header: str) -> bool:
+    expected = hmac.new(
+        REDACTOR_WEBHOOK_SECRET.encode(), body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, header.removeprefix("sha256="))
+
+
+@app.post("/redactor-callback")
+async def redactor_callback(request: Request):
+    body = await request.body()
+    if not verify_signature(body, request.headers.get("X-Redactor-Signature", "")):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    payload = await request.json()
+    if payload.get("status") != "completed" or not payload.get("file_data"):
+        return {"ok": True, "skipped": True}
+
+    session = therefore_session()
+
+    # Build index data — adjust FieldNo values to match your category definition.
+    # Use POST /restun/GetCategoryInfo {"CategoryNo": N} to list field numbers.
+    index_items = [
+        {"StringIndexData": {"FieldNo": 101, "DataValue": payload["filename"]}},
+        {"StringIndexData": {"FieldNo": 102, "DataValue": payload["job_id"]}},
+    ]
+
+    # PreprocessIndexData — fills defaults, auto-numbering, calculated fields
+    preprocessed = therefore_post(session, "PreprocessIndexData", {
+        "CategoryNo": THEREFORE_CATEGORY_NO,
+        "FillDependentFields": True, "ResetToDefaults": True,
+        "DoCalculateFields": True, "GetAutoAppendIxData": False,
+        "ExcludeReduntantForFillDependentFields": True,
+        "IndexData": {"IndexDataItems": index_items},
+    })
+
+    # CreateDocument — file_data is already base64, pass it through directly
+    result = therefore_post(session, "CreateDocument", {
+        "TheDocument": {
+            "CategoryNo": THEREFORE_CATEGORY_NO,
+            "IndexDataItems": preprocessed["IndexData"]["IndexDataItems"],
+            "Streams": [{
+                "StreamNo": 0,
+                "FileName": payload["file_name"],
+                "FileData": payload["file_data"],
+            }],
+        }
+    })
+    return {"ok": True, "doc_no": result.get("DocNo")}</code></pre>
+
+            <h4>Run the adapter</h4>
+            <pre><code>pip install fastapi uvicorn requests
+
+REDACTOR_WEBHOOK_SECRET=your-shared-secret \
+THEREFORE_BASE_URL=https://acme.thereforeonline.com/theservice/v0001/restun \
+THEREFORE_USERNAME=svc_redactor \
+THEREFORE_PASSWORD=password \
+THEREFORE_CATEGORY_NO=8 \
+uvicorn adapter:app --host 0.0.0.0 --port 8090</code></pre>
+
+            <h4>Or as a Docker service in docker-compose.yml</h4>
+            <pre><code>  adapter:
+    build:
+      context: ./adapter
+    restart: unless-stopped
+    environment:
+      - REDACTOR_WEBHOOK_SECRET=your-shared-secret
+      - THEREFORE_BASE_URL=https://acme.thereforeonline.com/theservice/v0001/restun
+      - THEREFORE_USERNAME=svc_redactor
+      - THEREFORE_PASSWORD=password
+      - THEREFORE_CATEGORY_NO=8
+    ports:
+      - "8090:8090"
+    networks:
+      - internal</code></pre>
+
+            <!-- ── Notes ─────────────────────────────────────────────── -->
+            <h3>Notes</h3>
+            <ul>
+              <li>
+                <strong>Approach A vs B</strong> — use the template approach when index data
+                is simple or static. Use the adapter when you need
+                <code>PreprocessIndexData</code>, calculated fields, or dynamic keyword lookups.
+              </li>
+              <li>
+                <strong>Field numbers</strong> — in the template or adapter, set
+                <code>FieldNo</code> to match your Therefore category definition. Look them up with:<br>
+                <code>POST /restun/GetCategoryInfo {"CategoryNo": 8, "IsAccessMaskNeeded": false}</code>
+              </li>
+              <li>
+                <strong>Keyword fields</strong> — if the category has mandatory keyword
+                (dropdown) fields, resolve their display values to <code>KeywordNo</code>
+                integers using <code>GetKeywordsByFieldNo</code>. This usually requires the adapter approach.
+              </li>
+              <li>
+                <strong>Therefore Online</strong> — include <code>"TenantName":"acme"</code>
+                in <code>webhook_headers</code> (Approach A) or set <code>THEREFORE_TENANT</code>
+                in the adapter env (Approach B).
+              </li>
+              <li>
+                <strong>Redaction level per document</strong> — Therefore's outgoing REST call
+                can substitute index field values into form parts, so you can map a Therefore
+                field to the <code>level</code> form part to vary redaction level per document.
+              </li>
+            </ul>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠️</span>
+              <div>
+                <strong>Large files</strong> — base64 inflates file size by ~33%. For documents
+                over ~20 MB, consider setting <code>webhook_include_file=false</code> and
+                fetching the file separately from <code>/api/v1/jobs/{job_id}/download</code>
+                using the <code>download_url</code> in the standard payload.
+              </div>
+            </div>
+          </section>
+
+          <!-- Admin -->
+          <section id="admin">
+            <h2>🔧 Admin Reference</h2>
+
+            <h3>Deployment</h3>
+            <pre><code>cp .env.example .env
+# Edit .env as needed
+docker compose up -d</code></pre>
+
+            <h3>Environment variables</h3>
+            <table class="level-table">
+              <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>HOST_PORT</code></td><td><code>8080</code></td><td>Host port for the web UI</td></tr>
+                <tr><td><code>WORKER_CONCURRENCY</code></td><td><code>2</code></td><td>Initial concurrency (can be changed via UI)</td></tr>
+                <tr><td><code>FOLDER_POLLING_ENABLED</code></td><td><code>true</code></td><td>Initial polling state</td></tr>
+                <tr><td><code>POLL_INTERVAL_SECONDS</code></td><td><code>15</code></td><td>Initial poll interval</td></tr>
+                <tr><td><code>MAX_FILE_SIZE_MB</code></td><td><code>100</code></td><td>Initial max file size</td></tr>
+                <tr><td><code>DEFAULT_REDACTION_LEVEL</code></td><td><code>standard</code></td><td>Initial default level</td></tr>
+                <tr><td><code>RETAIN_ORIGINALS</code></td><td><code>true</code></td><td>Initial retention setting</td></tr>
+                <tr><td><code>LOG_LEVEL</code></td><td><code>INFO</code></td><td><code>DEBUG</code> / <code>INFO</code> / <code>WARNING</code> / <code>ERROR</code></td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ️</span>
+              <div>Environment variables set the <em>initial</em> values on first boot. Once the runtime config file exists (<code>/data/runtime_config.json</code>), values changed via the web UI take precedence over environment variables.</div>
+            </div>
+
+            <h3>Persisting data to the host filesystem</h3>
+            <p>By default, data is stored in a named Docker volume. To use a host directory instead, edit <code>docker-compose.yml</code>:</p>
+            <pre><code>volumes:
+  redactor-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /srv/redactor/data  # ← your host path</code></pre>
+            <p>Create the directory first: <code>mkdir -p /srv/redactor/data/{input,output,originals,temp}</code></p>
+
+            <h3>Viewing logs</h3>
+            <pre><code># Follow live logs
+docker compose logs -f backend
+
+# Last 100 lines
+docker compose logs --tail=100 backend</code></pre>
+
+            <h3>Updating</h3>
+            <pre><code># Rebuild images (e.g. after code changes)
+docker compose build
+docker compose up -d
+
+# Apply environment variable changes
+docker compose down && docker compose up -d</code></pre>
+
+            <h3>Accessing the database</h3>
+            <pre><code># Open SQLite shell inside the container
+docker exec -it redactor-backend sqlite3 /data/redactor.db
+
+# Example: count jobs by status
+SELECT status, count(*) FROM jobs GROUP BY status;</code></pre>
+
+            <h3>Checking output files from the host</h3>
+            <pre><code># List redacted output files
+docker exec redactor-backend ls /data/output
+
+# Copy a file to the host
+docker cp redactor-backend:/data/output/filename_redacted_abc12345.pdf ./</code></pre>
+
+            <h3>Adding authentication</h3>
+            <p>The API and web UI have no built-in authentication. Before exposing Redactor to a network, put it behind a reverse proxy with authentication:</p>
+            <ul>
+              <li><strong>Caddy</strong> — <code>basicauth</code> directive or forward_auth for OAuth</li>
+              <li><strong>nginx</strong> — <code>auth_basic</code> or <code>auth_request</code> for OAuth</li>
+              <li><strong>Traefik</strong> — BasicAuth or ForwardAuth middleware</li>
+            </ul>
+
+            <h3>nginx <code>client_max_body_size</code></h3>
+            <p>The nginx config sets <code>client_max_body_size 110M</code>. If you increase <code>MAX_FILE_SIZE_MB</code> beyond 100, update this value in <code>frontend/nginx.conf</code> and rebuild the frontend image:</p>
+            <pre><code>docker compose build frontend
+docker compose up -d frontend</code></pre>
+
+            <h3>Resetting all data</h3>
+            <div class="callout callout-danger">
+              <span class="callout-icon">🚨</span>
+              <div>This permanently deletes all jobs, redacted files, and configuration.</div>
+            </div>
+            <pre><code>docker compose down
+docker volume rm redactor_redactor-data
+docker compose up -d</code></pre>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/js/api.js"></script>
+  <script>
+    // Highlight active TOC link on scroll
+    const sections = document.querySelectorAll('section[id]');
+    const tocLinks = document.querySelectorAll('.guide-toc a');
+
+    function updateToc() {
+      let active = '';
+      sections.forEach(s => {
+        if (window.scrollY + 120 >= s.offsetTop) active = s.id;
+      });
+      tocLinks.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + active);
+      });
+    }
+
+    window.addEventListener('scroll', updateToc, { passive: true });
+    updateToc();
+  </script>
+</body>
+</html>

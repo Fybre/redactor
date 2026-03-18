@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redactor — Upload</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>🔒 Redactor</h1>
+      <span>Document Redaction Service</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+      <a href="upload.html" class="active"><span class="icon">⬆</span> Upload</a>
+      <a href="config.html"><span class="icon">⚙</span> Configuration</a>
+      <a href="guide.html"><span class="icon">📖</span> Guide</a>
+    </nav>
+    <div class="sidebar-bottom">Redactor v1.0</div>
+  </aside>
+
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h2>Upload Documents</h2>
+        <p>Submit PDFs or images for redaction via the REST API</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:24px;align-items:start">
+
+        <!-- Left: File drop zone + file list -->
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-title">Select Files</div>
+            <div class="upload-zone" id="drop-zone">
+              <div class="upload-zone-icon">📂</div>
+              <h3>Drag & drop files here</h3>
+              <p>or click to browse — PDF, PNG, JPG, TIFF supported</p>
+            </div>
+            <input type="file" id="file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp" style="display:none">
+            <div id="file-list" class="file-list"></div>
+          </div>
+
+          <div style="display:none" id="progress-wrap">
+            <div style="margin-bottom:6px;font-size:12px;color:var(--muted)">Uploading…</div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div id="upload-result"></div>
+        </div>
+
+        <!-- Right: Options -->
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-title">Redaction Level</div>
+            <div class="radio-group">
+              <label class="radio-option" onclick="onLevelChange()">
+                <input type="radio" name="level" value="minimal">
+                <div>
+                  <div class="option-label">Minimal</div>
+                  <div class="option-desc">SSN, credit cards, passports, bank accounts</div>
+                </div>
+              </label>
+              <label class="radio-option selected" onclick="onLevelChange()">
+                <input type="radio" name="level" value="standard" checked>
+                <div>
+                  <div class="option-label">Standard <span style="color:var(--accent);font-size:11px">Recommended</span></div>
+                  <div class="option-desc">+ Names, emails, phone numbers, IPs</div>
+                </div>
+              </label>
+              <label class="radio-option" onclick="onLevelChange()">
+                <input type="radio" name="level" value="aggressive">
+                <div>
+                  <div class="option-label">Aggressive</div>
+                  <div class="option-desc">+ Dates, locations, URLs, regional IDs</div>
+                </div>
+              </label>
+              <label class="radio-option" onclick="onLevelChange()">
+                <input type="radio" name="level" value="maximum">
+                <div>
+                  <div class="option-label">Maximum</div>
+                  <div class="option-desc">+ Organizations, monetary values, ages</div>
+                </div>
+              </label>
+              <label class="radio-option" onclick="onLevelChange()">
+                <input type="radio" name="level" value="custom">
+                <div>
+                  <div class="option-label">Custom</div>
+                  <div class="option-desc">Choose specific entity types below</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Custom entities panel -->
+          <div class="card" id="custom-entities-panel" style="display:none;margin-bottom:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div class="card-title" style="margin:0">Select Entity Types</div>
+              <div style="display:flex;gap:6px">
+                <button onclick="selectAllEntities(true)" class="btn btn-ghost btn-sm">All</button>
+                <button onclick="selectAllEntities(false)" class="btn btn-ghost btn-sm">None</button>
+              </div>
+            </div>
+
+            <div style="margin-bottom:10px">
+              <label>Or use a saved profile:</label>
+              <select id="profile-select" onchange="loadProfileEntities(this.value)" style="margin-top:4px">
+                <option value="">— None —</option>
+              </select>
+            </div>
+
+            <div class="entity-grid" id="entity-grid">
+              <div style="color:var(--muted)">Loading entity types…</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-title">Output Mode</div>
+            <div class="radio-group">
+              <label class="radio-option selected" data-mode="directory" onclick="onOutputModeChange()">
+                <input type="radio" name="output_mode" value="directory" checked>
+                <div>
+                  <div class="option-label">Save to output directory</div>
+                  <div class="option-desc">Redacted file is saved on the server</div>
+                </div>
+              </label>
+              <label class="radio-option" data-mode="webhook" onclick="onOutputModeChange()">
+                <input type="radio" name="output_mode" value="webhook">
+                <div>
+                  <div class="option-label">Send to webhook</div>
+                  <div class="option-desc">POST notification with download link when complete</div>
+                </div>
+              </label>
+            </div>
+
+            <div id="webhook-panel" style="display:none;margin-top:12px">
+              <div class="form-group">
+                <label>Webhook URL</label>
+                <input type="url" id="webhook-url" placeholder="https://your-server.com/webhook">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Payload Template <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+                <select id="webhook-template">
+                  <option value="">— Standard payload —</option>
+                </select>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                  Use a saved Jinja2 template to customise the webhook body (e.g. for Therefore integration).
+                  Templates are managed in <a href="config.html#templates" style="color:var(--accent)">Configuration → Webhook Templates</a>.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button id="submit-btn" onclick="submitFiles()" class="btn btn-primary" style="width:100%" disabled>
+            Submit for Redaction
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/upload.js"></script>
+  <script>
+    async function loadProfileEntities(name) {
+      if (!name) return;
+      try {
+        const profiles = await api.get('/config/profiles');
+        const p = profiles[name];
+        if (!p) return;
+        document.querySelectorAll('#entity-grid input[type=checkbox]').forEach(cb => {
+          cb.checked = p.entities.includes(cb.value);
+          const label = cb.closest('.entity-checkbox');
+          if (label) label.classList.toggle('checked', cb.checked);
+        });
+      } catch {}
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+import asyncio
+import base64
+import hashlib
+import hmac
+import json
+import logging
+import os
+import time
+from pathlib import Path
+from typing import Optional
+
+import httpx
+from jinja2 import Template, TemplateError
+
+logger = logging.getLogger(__name__)
+
+
+async def send_webhook(
+    url: str,
+    payload: dict,
+    secret: Optional[str] = None,
+    extra_headers: Optional[dict] = None,
+    max_retries: int = 3,
+    raw_body: Optional[bytes] = None,
+) -> bool:
+    """
+    Send a signed webhook POST. Returns True on success.
+    If raw_body is provided it is used as-is (e.g. a rendered Jinja2 template);
+    otherwise payload is serialised to JSON.
+    extra_headers are merged last so they can override any default header.
+    Retries with exponential backoff on failure.
+    """
+    body = raw_body if raw_body is not None else json.dumps(payload, default=str).encode()
+    headers = {
+        "Content-Type": "application/json",
+        "X-Redactor-Timestamp": str(int(time.time())),
+        "User-Agent": "Redactor/1.0",
+    }
+    if secret:
+        sig = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        headers["X-Redactor-Signature"] = f"sha256={sig}"
+    if extra_headers:
+        headers.update(extra_headers)
+
+    timeout = 60.0 if payload.get("file_data") else 15.0
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for attempt in range(max_retries):
+            try:
+                resp = await client.post(url, content=body, headers=headers)
+                if resp.status_code < 400:
+                    logger.info(f"Webhook delivered to {url} (status {resp.status_code})")
+                    return True
+                logger.warning(f"Webhook attempt {attempt+1} failed: HTTP {resp.status_code}")
+            except Exception as e:
+                logger.warning(f"Webhook attempt {attempt+1} error: {e}")
+
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+
+    logger.error(f"Webhook permanently failed after {max_retries} attempts: {url}")
+    return False
+
+
+def build_job_payload(job, download_base_url: str = "") -> dict:
+    """
+    Build the webhook payload for a completed job.
+    If job.webhook_include_file is True, reads the output file and embeds it
+    as base64 in file_data — ready to drop straight into Therefore's
+    CreateDocument.Streams[0].FileData.
+    """
+    payload = {
+        "event": "job.completed",
+        "job_id": job.id,
+        "filename": job.filename,
+        "status": job.status,
+        "level": job.level,
+        "page_count": job.page_count,
+        "entities_found": job.entities_found or {},
+        "processing_ms": job.processing_ms,
+        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        "download_url": f"{download_base_url}/api/v1/jobs/{job.id}/download" if download_base_url else None,
+    }
+
+    if job.webhook_include_file and job.output_path and os.path.exists(job.output_path):
+        with open(job.output_path, "rb") as f:
+            file_bytes = f.read()
+        payload["file_data"] = base64.b64encode(file_bytes).decode("ascii")
+        payload["file_size_bytes"] = len(file_bytes)
+        payload["file_name"] = os.path.basename(job.output_path)
+
+    return payload
+
+
+def build_template_context(job) -> dict:
+    """Build the Jinja2 template variable context from a completed job."""
+    context = {
+        "job_id": job.id,
+        "filename": job.filename,
+        "stem": Path(job.filename).stem,
+        "status": job.status,
+        "level": job.level,
+        "page_count": job.page_count or 0,
+        "entities_found": job.entities_found or {},
+        "total_entities": sum((job.entities_found or {}).values()),
+        "processing_ms": job.processing_ms,
+        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        # file data fields — populated below if file is available
+        "file_data": "",
+        "file_name": "",
+        "file_size_bytes": 0,
+    }
+
+    if job.output_path and os.path.exists(job.output_path):
+        with open(job.output_path, "rb") as f:
+            file_bytes = f.read()
+        context["file_data"] = base64.b64encode(file_bytes).decode("ascii")
+        context["file_size_bytes"] = len(file_bytes)
+        context["file_name"] = os.path.basename(job.output_path)
+
+    # Merge caller-supplied extra vars — they can override anything above
+    if job.webhook_extra:
+        context.update(job.webhook_extra)
+
+    return context
+
+
+def render_webhook_template(template_str: str, job) -> bytes:
+    """
+    Render a Jinja2 webhook template with job context.
+    Returns the rendered bytes ready to POST.
+    Raises TemplateError on render failure.
+    """
+    context = build_template_context(job)
+    rendered = Template(template_str).render(**context)
+    return rendered.encode()
