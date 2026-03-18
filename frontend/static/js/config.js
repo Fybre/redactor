@@ -298,7 +298,10 @@ async function saveTemplate() {
   const name = document.getElementById('tmpl-name').value.trim();
   const desc = document.getElementById('tmpl-desc').value.trim();
   const body = document.getElementById('tmpl-body').value.trim();
-  const headersRaw = document.getElementById('tmpl-headers').value.trim();
+  const headersEl = document.getElementById('tmpl-headers');
+  const headersRaw = headersEl ? headersEl.value.trim() : '';
+  // Diagnostic: alert what was captured so we can confirm the textarea value
+  alert(`DEBUG — headers textarea captured ${headersRaw.length} chars:\n${headersRaw || '(empty)'}`);
   if (!name) { showToast('Template name is required', 'error'); return; }
   if (!body) { showToast('Template body is required', 'error'); return; }
 
