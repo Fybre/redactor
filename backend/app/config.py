@@ -167,11 +167,13 @@ def load_runtime_config() -> dict:
             with open(_RUNTIME_CONFIG_PATH) as f:
                 saved = json.load(f)
             config = {**_DEFAULT_RUNTIME_CONFIG, **saved}
-            # Merge dict-type defaults additively so new default templates/profiles
-            # are visible on existing deployments that pre-date them
+            # For dict-type keys, deep-merge: defaults provide the base, saved values
+            # override individual entries.  This means new default templates/profiles
+            # added in later releases automatically appear on existing deployments
+            # while any user-customised entries are preserved.
             for key, default_val in _DEFAULT_RUNTIME_CONFIG.items():
-                if isinstance(default_val, dict) and key not in saved:
-                    config[key] = default_val
+                if isinstance(default_val, dict):
+                    config[key] = {**default_val, **(saved.get(key) or {})}
             return config
         except Exception:
             pass
