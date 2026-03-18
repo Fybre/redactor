@@ -301,7 +301,7 @@ async function saveTemplate() {
   const headersEl = document.getElementById('tmpl-headers');
   const headersRaw = headersEl ? headersEl.value.trim() : '';
   // Diagnostic: alert what was captured so we can confirm the textarea value
-  alert(`DEBUG — headers textarea captured ${headersRaw.length} chars:\n${headersRaw || '(empty)'}`);
+  console.log(`[saveTemplate] editingTemplate=${editingTemplate} headers textarea length=${headersRaw.length} value=${headersRaw || '(empty)'}`);
   if (!name) { showToast('Template name is required', 'error'); return; }
   if (!body) { showToast('Template body is required', 'error'); return; }
 
