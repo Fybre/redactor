@@ -56,6 +56,108 @@ _DEFAULT_RUNTIME_CONFIG = {
     "webhooks": [],
     "profiles": {},
     "default_profile": None,
+    "webhook_templates": {
+        "therefore_create_document": {
+            "description": "Therefore DMS — CreateDocument with redacted file as base64 stream",
+            "headers": {},
+            "body": (
+                '{\n'
+                '  "CategoryNo": {{ category_no | default(57) }},\n'
+                '  "CheckInComments": "Redacted by Redactor — {{ filename }}",\n'
+                '  "IndexDataItems": [\n'
+                '    {\n'
+                '      "StringIndexData": {\n'
+                '        "FieldName": "Document_Name",\n'
+                '        "FieldNo": 0,\n'
+                '        "DataValue": "{{ stem }}"\n'
+                '      }\n'
+                '    },\n'
+                '    {\n'
+                '      "StringIndexData": {\n'
+                '        "FieldName": "Redaction_Level",\n'
+                '        "FieldNo": 0,\n'
+                '        "DataValue": "{{ level }}"\n'
+                '      }\n'
+                '    },\n'
+                '    {\n'
+                '      "StringIndexData": {\n'
+                '        "FieldName": "Job_ID",\n'
+                '        "FieldNo": 0,\n'
+                '        "DataValue": "{{ job_id }}"\n'
+                '      }\n'
+                '    },\n'
+                '    {\n'
+                '      "DateIndexData": {\n'
+                '        "FieldName": "Redaction_Date",\n'
+                '        "FieldNo": 0,\n'
+                '        "DataISO8601Value": "{{ completed_at }}"\n'
+                '      }\n'
+                '    },\n'
+                '    {\n'
+                '      "IntIndexData": {\n'
+                '        "FieldName": "Page_Count",\n'
+                '        "FieldNo": 0,\n'
+                '        "DataValue": {{ page_count }}\n'
+                '      }\n'
+                '    }\n'
+                '  ],\n'
+                '  "Streams": [\n'
+                '    {% if file_data %}\n'
+                '    {\n'
+                '      "FileName": "{{ file_name }}",\n'
+                '      "FileDataBase64JSON": "{{ file_data }}",\n'
+                '      "NewStreamInsertMode": 0\n'
+                '    }\n'
+                '    {% endif %}\n'
+                '  ],\n'
+                '  "DoFillDependentFields": true\n'
+                '}'
+            ),
+        },
+        "therefore_update_document": {
+            "description": "Therefore UpdateDocument — replace primary stream with redacted file",
+            "headers": {},
+            "body": (
+                '{\n'
+                '  "DocNo": {{ doc_no }},\n'
+                '  "CheckInComments": "Redacted by Redactor — {{ filename }}",\n'
+                '  "LastChangeTime": "{{ completed_at }}",\n'
+                '  "DoFillDependentFields": false,\n'
+                '  "StreamsToUpdate": [\n'
+                '    {% if file_data %}\n'
+                '    {\n'
+                '      "StreamNo": {{ stream_no | default(0) }},\n'
+                '      "FileName": "{{ file_name }}",\n'
+                '      "FileData": "{{ file_data }}"\n'
+                '    }\n'
+                '    {% endif %}\n'
+                '  ]\n'
+                '}'
+            ),
+        },
+        "therefore_update_document2": {
+            "description": "Therefore UpdateDocument2 — replace primary stream with redacted file (v2 endpoint)",
+            "headers": {},
+            "body": (
+                '{\n'
+                '  "DocNo": {{ doc_no }},\n'
+                '  "CheckInComments": "Redacted by Redactor — {{ filename }}",\n'
+                '  "LastChangeTime": "{{ completed_at }}",\n'
+                '  "DoFillDependentFields": false,\n'
+                '  "StreamsToUpdate": [\n'
+                '    {% if file_data %}\n'
+                '    {\n'
+                '      "StreamNo": {{ stream_no | default(0) }},\n'
+                '      "FileName": "{{ file_name }}",\n'
+                '      "FileData": "{{ file_data }}",\n'
+                '      "NewStreamInsertMode": {{ insert_mode | default(2) }}\n'
+                '    }\n'
+                '    {% endif %}\n'
+                '  ]\n'
+                '}'
+            ),
+        },
+    },
 }
 
 
@@ -65,6 +167,11 @@ def load_runtime_config() -> dict:
             with open(_RUNTIME_CONFIG_PATH) as f:
                 saved = json.load(f)
             config = {**_DEFAULT_RUNTIME_CONFIG, **saved}
+            # Merge dict-type defaults additively so new default templates/profiles
+            # are visible on existing deployments that pre-date them
+            for key, default_val in _DEFAULT_RUNTIME_CONFIG.items():
+                if isinstance(default_val, dict) and key not in saved:
+                    config[key] = default_val
             return config
         except Exception:
             pass
