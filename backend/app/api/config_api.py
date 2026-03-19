@@ -1,6 +1,8 @@
 import logging
 from typing import List, Optional
+import httpx
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.config import load_runtime_config, save_runtime_config, settings
@@ -245,6 +247,62 @@ async def delete_template(name: str):
     del templates[name]
     save_runtime_config(config)
     return {"status": "deleted"}
+
+
+def _ollama_base(config: dict) -> str:
+    """Derive the Ollama base URL (without /v1) from the configured llm_base_url."""
+    url = config.get("llm_base_url", "http://ollama:11434/v1").rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url
+
+
+class OllamaPullRequest(BaseModel):
+    model: str
+
+
+@router.get("/ollama/models")
+async def list_ollama_models():
+    """List models currently available in the configured Ollama instance."""
+    config = load_runtime_config()
+    base = _ollama_base(config)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{base}/api/tags")
+            if resp.status_code == 200:
+                data = resp.json()
+                return {"models": [m["name"] for m in data.get("models", [])]}
+            return {"models": []}
+    except Exception as e:
+        logger.debug(f"Ollama model list failed: {e}")
+        return {"models": [], "unavailable": True}
+
+
+@router.post("/ollama/pull")
+async def pull_ollama_model(body: OllamaPullRequest):
+    """Pull a model from Ollama, streaming progress as Server-Sent Events."""
+    config = load_runtime_config()
+    base = _ollama_base(config)
+
+    async def stream():
+        try:
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                async with client.stream(
+                    "POST", f"{base}/api/pull", json={"name": body.model}
+                ) as resp:
+                    async for line in resp.aiter_lines():
+                        if line:
+                            yield f"data: {line}\n\n"
+        except Exception as e:
+            import json as _json
+            yield f"data: {_json.dumps({'error': str(e)})}\n\n"
+        yield 'data: {"done":true}\n\n'
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/webhooks/{webhook_id}/test")

@@ -20,12 +20,109 @@ async function loadConfig() {
     document.getElementById('cfg-llm-base-url').value = config.llm_base_url || 'http://ollama:11434/v1';
     document.getElementById('cfg-llm-model').value = config.llm_model || 'llama3.2:3b';
     updateLLMFields();
+    if ((config.detection_strategy || 'presidio') !== 'presidio') loadOllamaModels();
   } catch {}
 }
 
 function updateLLMFields() {
   const strategy = document.getElementById('cfg-detection-strategy').value;
-  document.getElementById('llm-fields').style.display = strategy === 'presidio' ? 'none' : '';
+  const visible = strategy !== 'presidio';
+  document.getElementById('llm-fields').style.display = visible ? '' : 'none';
+  if (visible) loadOllamaModels();
+}
+
+// ── Ollama model management ───────────────────────────────
+
+let _ollamaModels = [];
+
+async function loadOllamaModels() {
+  const statusEl = document.getElementById('ollama-model-status');
+  const pullBtn  = document.getElementById('ollama-pull-btn');
+  const datalist = document.getElementById('ollama-models-list');
+  if (!statusEl) return;
+  statusEl.textContent = '';
+  try {
+    const res = await api.get('/config/ollama/models');
+    _ollamaModels = res.models || [];
+    datalist.innerHTML = _ollamaModels.map(m => `<option value="${m}">`).join('');
+    checkModelStatus();
+  } catch {
+    statusEl.textContent = 'Ollama unreachable';
+    statusEl.style.color = 'var(--muted)';
+    pullBtn.style.display = 'none';
+  }
+}
+
+function checkModelStatus() {
+  const model    = (document.getElementById('cfg-llm-model')?.value || '').trim();
+  const statusEl = document.getElementById('ollama-model-status');
+  const pullBtn  = document.getElementById('ollama-pull-btn');
+  if (!statusEl) return;
+  if (!model || !_ollamaModels.length) { statusEl.textContent = ''; pullBtn.style.display = 'none'; return; }
+  if (_ollamaModels.includes(model)) {
+    statusEl.textContent = '✓ Available';
+    statusEl.style.color = '#4caf50';
+    pullBtn.style.display = 'none';
+  } else {
+    statusEl.textContent = 'Not pulled';
+    statusEl.style.color = '#ff9800';
+    pullBtn.style.display = '';
+  }
+}
+
+async function pullOllamaModel() {
+  const model      = (document.getElementById('cfg-llm-model')?.value || '').trim();
+  const progressEl = document.getElementById('ollama-pull-progress');
+  const statusEl   = document.getElementById('ollama-pull-status');
+  const barEl      = document.getElementById('ollama-pull-bar');
+  const pullBtn    = document.getElementById('ollama-pull-btn');
+  if (!model) return;
+
+  progressEl.style.display = '';
+  pullBtn.disabled = true;
+  statusEl.textContent = 'Starting…';
+  barEl.style.width = '0%';
+
+  try {
+    const resp = await fetch('/api/v1/config/ollama/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const d = JSON.parse(line.slice(6));
+          if (d.error) throw new Error(d.error);
+          if (d.done) {
+            progressEl.style.display = 'none';
+            pullBtn.disabled = false;
+            await loadOllamaModels();
+            showToast(`Model "${model}" pulled successfully`, 'success');
+            return;
+          }
+          if (d.status) statusEl.textContent = d.status;
+          if (d.total && d.completed)
+            barEl.style.width = `${Math.round(d.completed / d.total * 100)}%`;
+        } catch (e) {
+          if (e.message !== 'Unexpected end of JSON input') throw e;
+        }
+      }
+    }
+  } catch (e) {
+    progressEl.style.display = 'none';
+    pullBtn.disabled = false;
+    showToast(`Pull failed: ${e.message}`, 'error');
+  }
 }
 
 function toggleSwitch(id) {
