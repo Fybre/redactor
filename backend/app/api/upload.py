@@ -40,6 +40,11 @@ def _parse_json_field(value: Optional[str], field_name: str, expect_type: type):
         raise HTTPException(status_code=400, detail=f"{field_name} must be a valid JSON {expect_type.__name__}")
 
 
+def _extract_prefixed(d: dict, prefix: str) -> dict:
+    """Extract keys starting with prefix from a dict, stripping the prefix."""
+    return {k[len(prefix):]: str(v) for k, v in d.items() if k.startswith(prefix) and k[len(prefix):]}
+
+
 async def _collect_prefixed_headers(request: Request) -> dict:
     """Collect webhook_header_<Name> form fields into a headers dict."""
     form = await request.form()
@@ -124,13 +129,13 @@ async def upload_document(
     else:
         parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
 
-    # Merge any webhook_header_<Name> fields (prefix wins over JSON field)
-    prefix_headers = await _collect_prefixed_headers(request)
+    # Merge prefixed keys from the metadata envelope, then from form fields (form wins)
+    meta_headers = _extract_prefixed(meta, "webhook_header_")
+    meta_extra   = _extract_prefixed(meta, "webhook_extra_")
+    prefix_headers = {**meta_headers, **(await _collect_prefixed_headers(request))}
+    prefix_extra   = {**meta_extra,   **(await _collect_prefixed_extra(request))}
     if prefix_headers:
         parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
-
-    # Merge any webhook_extra_<key> fields (prefix wins over JSON field)
-    prefix_extra = await _collect_prefixed_extra(request)
     if prefix_extra:
         parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
 
@@ -263,13 +268,13 @@ async def upload_document_sync(
     else:
         parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
 
-    # Merge any webhook_header_<Name> fields (prefix wins over JSON field)
-    prefix_headers = await _collect_prefixed_headers(request)
+    # Merge prefixed keys from the metadata envelope, then from form fields (form wins)
+    meta_headers = _extract_prefixed(meta, "webhook_header_")
+    meta_extra   = _extract_prefixed(meta, "webhook_extra_")
+    prefix_headers = {**meta_headers, **(await _collect_prefixed_headers(request))}
+    prefix_extra   = {**meta_extra,   **(await _collect_prefixed_extra(request))}
     if prefix_headers:
         parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
-
-    # Merge any webhook_extra_<key> fields (prefix wins over JSON field)
-    prefix_extra = await _collect_prefixed_extra(request)
     if prefix_extra:
         parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
 
