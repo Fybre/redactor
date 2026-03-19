@@ -22,12 +22,18 @@ class _LLMSpan:
         self.score = score
 
 
-def _build_prompt(text: str, entity_types: List[str]) -> str:
-    types_str = ", ".join(entity_types)
+def _build_prompt(text: str, entity_types: List[str], entity_descriptions: dict = None) -> str:
+    if entity_descriptions:
+        types_str = "\n".join(
+            f"- {e}: {entity_descriptions[e]}" if e in entity_descriptions else f"- {e}"
+            for e in entity_types
+        )
+    else:
+        types_str = "\n".join(f"- {e}" for e in entity_types)
     return (
         "You are a PII detection assistant. Find all instances of the following "
         "entity types in the text below and return them as a JSON array.\n\n"
-        f"Entity types to find: {types_str}\n\n"
+        f"Entity types to find:\n{types_str}\n\n"
         "Rules:\n"
         '- Return ONLY a JSON array: [{"entity_type": "PERSON", "text": "John Smith"}, ...]\n'
         '- "text" must be the EXACT verbatim substring as it appears in the source text\n'
@@ -118,6 +124,7 @@ def analyze_text_llm(
     base_url: str,
     model: str,
     api_key: str = "ollama",
+    entity_descriptions: dict = None,
 ) -> List[_LLMSpan]:
     """
     Run LLM-based PII detection on text.
@@ -144,7 +151,7 @@ def analyze_text_llm(
     chunks = _chunk_text(text)
 
     for chunk_text, chunk_offset in chunks:
-        prompt = _build_prompt(chunk_text, entity_types)
+        prompt = _build_prompt(chunk_text, entity_types, entity_descriptions)
         try:
             response = client.chat.completions.create(
                 model=model,

@@ -6,7 +6,7 @@ import logging
 from typing import List, Optional
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider
-from app.core.redaction_levels import get_entities_for_level
+from app.core.redaction_levels import get_entities_for_level, ENTITY_DESCRIPTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,7 @@ def analyze_text(
         base_url=llm_base_url or "http://ollama:11434/v1",
         model=llm_model or "llama3.2:3b",
         api_key=llm_api_key or "ollama",
+        entity_descriptions=ENTITY_DESCRIPTIONS,
     )
 
     if strategy == "llm":
