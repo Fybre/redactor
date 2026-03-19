@@ -5,6 +5,7 @@ Each level is a superset of the previous.
 
 MINIMAL_ENTITIES = [
     "CREDIT_CARD",
+    "CVV",
     "CRYPTO",
     "IBAN_CODE",
     "US_SSN",
