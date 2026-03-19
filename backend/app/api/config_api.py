@@ -32,12 +32,14 @@ async def list_entities():
         supported = get_supported_entities()
     except Exception:
         supported = list(ENTITY_DESCRIPTIONS.keys())
+    # Include any extra entities defined in ENTITY_DESCRIPTIONS (e.g. LLM-only types)
+    all_types = list(supported) + [e for e in ENTITY_DESCRIPTIONS if e not in supported]
     return [
         {
             "type": e,
             "description": ENTITY_DESCRIPTIONS.get(e, e.replace("_", " ").title()),
         }
-        for e in supported
+        for e in all_types
     ]
 
 
