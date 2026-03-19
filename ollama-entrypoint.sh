@@ -3,9 +3,11 @@
 ollama serve &
 OLLAMA_PID=$!
 
-# Wait for the API to be ready using ollama's own CLI
+# Wait for the server to be ready.
+# Explicitly set OLLAMA_HOST so the client commands connect to 127.0.0.1
+# and not the server's bind address (0.0.0.0), which is not a valid client target.
 echo "Waiting for Ollama to start..."
-until ollama list > /dev/null 2>&1; do
+until OLLAMA_HOST=http://127.0.0.1:11434 ollama list > /dev/null 2>&1; do
   sleep 2
 done
 echo "Ollama ready."
@@ -13,8 +15,8 @@ echo "Ollama ready."
 # Pull the configured model (fast no-op if already present)
 MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
 echo "Pulling model: $MODEL"
-ollama pull "$MODEL"
+OLLAMA_HOST=http://127.0.0.1:11434 ollama pull "$MODEL"
 echo "Model ready."
 
-# Hand control back to ollama serve
+# Keep container alive and forward signals to ollama serve
 wait $OLLAMA_PID
