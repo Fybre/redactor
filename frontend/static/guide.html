@@ -333,6 +333,7 @@
                   <td>
                     <div class="entity-pills">
                       <span class="entity-pill highlight">CREDIT_CARD</span>
+                      <span class="entity-pill highlight">CVV</span>
                       <span class="entity-pill highlight">US_SSN</span>
                       <span class="entity-pill highlight">IBAN_CODE</span>
                       <span class="entity-pill highlight">US_BANK_NUMBER</span>
@@ -344,6 +345,7 @@
                       <span class="entity-pill highlight">AU_MEDICARE</span>
                     </div>
                     Financial identifiers and government-issued ID numbers only.
+                    CVV detection requires LLM strategy (see Detection Strategy in System Settings).
                   </td>
                 </tr>
                 <tr>
@@ -598,15 +600,15 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
             <pre><code>{{ completed_at[:10] }}   {# produces: 2026-03-18 #}</code></pre>
 
             <h3>Template headers</h3>
-            <p>Each template has an optional <strong>HTTP Headers</strong> field — a JSON object of headers sent with every POST that uses the template. Store API credentials here rather than passing them per-request:</p>
-            <pre><code>{
-  "Authorization": "Basic &lt;base64(username:password)&gt;",
-  "TenantName": "acme",
-  "Content-Type": "application/json"
-}</code></pre>
+            <p>Each template has an optional <strong>HTTP Headers</strong> section — a structured key/value editor where headers are sent with every POST that uses the template. Store API credentials here rather than passing them per-request.</p>
+            <p>Sensitive headers (those containing words like <em>Authorization</em>, <em>token</em>, <em>key</em>, <em>secret</em>, or <em>password</em>) are automatically masked as you type. Click the 👁 toggle to reveal a value while editing. Non-sensitive headers such as <code>Content-Type</code> or <code>TenantName</code> are shown as plain text.</p>
             <div class="callout callout-tip">
               <span class="callout-icon">💡</span>
               <div>Storing credentials in the template keeps them out of the job submission request. This is especially useful when Therefore (or another system) is submitting jobs — you don't need to pass auth credentials through the calling system at all.</div>
+            </div>
+            <div class="callout callout-tip">
+              <span class="callout-icon">🔒</span>
+              <div>Set <code>ALLOW_HEADER_REVEAL=false</code> in <code>.env</code> to prevent sensitive header values from ever being sent to the browser. Once saved, they can only be replaced by typing a new value — they cannot be viewed. Changes to other fields (description, body) can still be saved without re-entering credentials.</div>
             </div>
 
             <h3>Dynamic per-job variables</h3>

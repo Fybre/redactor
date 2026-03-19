@@ -116,11 +116,13 @@ Each page is assessed individually — pages with a real text layer use pipeline
 
 | Level | Entities Included |
 |---|---|
-| **Minimal** | Credit cards, SSN, IBAN, bank accounts, passports, NHS, Aadhaar, PAN, TFN, Medicare |
+| **Minimal** | Credit cards, CVV¹, SSN, IBAN, bank accounts, passports, NHS, Aadhaar, PAN, TFN, Medicare |
 | **Standard** | + Person names, email, phone, driver's licence, IP address, medical licence, ITIN |
 | **Aggressive** | + Locations/addresses, dates & times, URLs, nationality/religion/political groups, regional IDs |
 | **Maximum** | + Organisations, ages, monetary values, facility names |
 | **Custom** | Any combination of entity types, or use a saved named profile |
+
+¹ CVV detection requires LLM or Both detection strategy — it is a no-op with Presidio only.
 
 ---
 
@@ -140,6 +142,7 @@ Each page is assessed individually — pages with a real text layer use pipeline
 | `DEFAULT_REDACTION_LEVEL` | `standard` | Default level for polled files |
 | `DEFAULT_OUTPUT_MODE` | `directory` | `directory` or `webhook` |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `ALLOW_HEADER_REVEAL` | `true` | Set to `false` to prevent sensitive webhook template header values (Authorization, tokens, keys) from being sent to the browser. Once saved they can only be replaced, not viewed. |
 
 Runtime settings can also be changed live via the web UI without restarting the container.
 
@@ -312,15 +315,9 @@ Use `{{ completed_at[:10] }}` to get date-only (`2026-03-18`) where required.
 
 ### Template headers
 
-Each template has an optional **HTTP Headers** field (a JSON object). Headers stored here — such as `Authorization` and `TenantName` — are sent with every POST that uses the template. This keeps credentials out of per-request parameters.
+Each template has an optional **HTTP Headers** section — a structured key/value editor. Headers stored here are sent with every POST that uses the template, keeping credentials out of per-request parameters.
 
-```json
-{
-  "Authorization": "Basic c3ZjX3JlZGFjdG9yOnBhc3N3b3Jk",
-  "TenantName": "acme",
-  "Content-Type": "application/json"
-}
-```
+Sensitive header names (containing words like `authorization`, `token`, `key`, `secret`, `password`) are automatically masked in the editor. A 👁 toggle reveals the value while editing. Set `ALLOW_HEADER_REVEAL=false` in `.env` to disable the reveal toggle entirely — values are then never sent to the browser and can only be replaced.
 
 ### Dynamic per-job variables with `webhook_extra`
 
