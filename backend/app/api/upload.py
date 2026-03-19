@@ -1,6 +1,7 @@
 import json as _json
 import os
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 
@@ -163,4 +164,141 @@ async def upload_document(
         "job_id": job_id,
         "filename": file.filename,
         "level": level,
+    }
+
+
+@router.post("/upload-sync")
+async def upload_document_sync(
+    file: UploadFile = File(...),
+    metadata: Optional[str] = Form(None),
+    level: Optional[str] = Form(None),
+    custom_entities: Optional[str] = Form(None),
+    profile_name: Optional[str] = Form(None),
+    output_mode: Optional[str] = Form(None),
+    webhook_url: Optional[str] = Form(None),
+    webhook_headers: Optional[str] = Form(None),
+    webhook_secret: Optional[str] = Form(None),
+    webhook_include_file: Optional[str] = Form(None),
+    webhook_template: Optional[str] = Form(None),
+    webhook_extra: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Submit a document for redaction and block until processing and delivery are complete.
+    Accepts the same parameters as /upload. Returns the completed job result.
+    Use this when the caller (e.g. a Therefore workflow REST Call task) needs to wait
+    for the result before continuing.
+    """
+    from app.workers.job_processor import process_job_now
+
+    # ── Reuse the same parameter parsing as /upload ──────────────────────────
+    meta = {}
+    if metadata:
+        meta = _parse_json_field(metadata, "metadata", dict) or {}
+
+    def _get(field_value, key, default=None):
+        if field_value is not None:
+            return field_value
+        return meta.get(key, default)
+
+    level            = _get(level,            "level",            "standard")
+    custom_entities  = _get(custom_entities,  "custom_entities")
+    profile_name     = _get(profile_name,     "profile_name")
+    output_mode      = _get(output_mode,      "output_mode",      "directory")
+    webhook_url      = _get(webhook_url,      "webhook_url")
+    webhook_secret   = _get(webhook_secret,   "webhook_secret")
+    webhook_template = _get(webhook_template, "webhook_template")
+
+    _wif_raw = _get(webhook_include_file, "webhook_include_file", "false")
+    webhook_include_file_bool = str(_wif_raw).lower() in ("true", "1", "yes")
+
+    _wh_raw = _get(webhook_headers, "webhook_headers")
+    if isinstance(_wh_raw, dict):
+        parsed_webhook_headers = _wh_raw
+    else:
+        parsed_webhook_headers = _parse_json_field(_wh_raw, "webhook_headers", dict)
+
+    _we_raw = _get(webhook_extra, "webhook_extra")
+    if isinstance(_we_raw, dict):
+        parsed_webhook_extra = _we_raw
+    else:
+        parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
+
+    valid_levels = {e.value for e in RedactionLevel}
+    if level not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(valid_levels)}")
+
+    parsed_entities = None
+    if level == "custom" or custom_entities:
+        if isinstance(custom_entities, list):
+            parsed_entities = custom_entities
+        else:
+            parsed_entities = _parse_json_field(custom_entities, "custom_entities", list) or []
+
+    if profile_name:
+        from app.config import load_runtime_config
+        config = load_runtime_config()
+        profiles = config.get("profiles", {})
+        if profile_name not in profiles:
+            raise HTTPException(status_code=400, detail=f"Profile '{profile_name}' not found")
+        parsed_entities = profiles[profile_name].get("entities", [])
+        level = "custom"
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    _validate_file(file.filename, len(content))
+
+    job_id = str(uuid.uuid4())
+    temp_path = get_temp_path(file.filename)
+    os.makedirs(Path(temp_path).parent, exist_ok=True)
+    with open(temp_path, "wb") as f:
+        f.write(content)
+
+    file_hash = compute_sha256(temp_path)
+    now = datetime.now(timezone.utc)
+
+    # Create the job already in PROCESSING state so the async worker ignores it
+    job = Job(
+        id=job_id,
+        filename=file.filename,
+        file_hash=file_hash,
+        file_size_bytes=len(content),
+        mime_type=file.content_type,
+        source="api",
+        status=JobStatus.PROCESSING,
+        started_at=now,
+        level=level,
+        custom_entities=parsed_entities,
+        profile_name=profile_name,
+        output_mode=output_mode,
+        webhook_url=webhook_url if output_mode == "webhook" else None,
+        webhook_headers=parsed_webhook_headers if output_mode == "webhook" else None,
+        webhook_secret=webhook_secret if output_mode == "webhook" else None,
+        webhook_include_file=webhook_include_file_bool if output_mode == "webhook" else False,
+        webhook_template=webhook_template if output_mode == "webhook" else None,
+        webhook_extra=parsed_webhook_extra if output_mode == "webhook" else None,
+        input_path=temp_path,
+    )
+    db.add(job)
+    await db.commit()
+
+    # Block until processing and delivery are complete
+    await process_job_now(job_id)
+
+    # Read final state and return
+    await db.refresh(job)
+    if job.status == JobStatus.FAILED:
+        raise HTTPException(status_code=500, detail=job.error_message or "Redaction failed")
+
+    return {
+        "status": "completed",
+        "job_id": job_id,
+        "filename": job.filename,
+        "level": level,
+        "page_count": job.page_count,
+        "entities_found": job.entities_found,
+        "processing_ms": job.processing_ms,
+        "webhook_sent": job.webhook_sent,
     }

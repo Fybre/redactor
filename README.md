@@ -177,7 +177,7 @@ volumes:
 
 Base URL: `http://localhost:8080/api/v1`
 
-### Submit a document
+### Submit a document (async)
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/jobs/upload \
@@ -185,6 +185,36 @@ curl -X POST http://localhost:8080/api/v1/jobs/upload \
   -F level=standard \
   -F output_mode=directory
 ```
+
+Returns immediately with `{"status": "queued", "job_id": "..."}`. Poll `/jobs/{job_id}` for the result.
+
+### Submit a document (synchronous)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/jobs/upload-sync \
+  -F file=@document.pdf \
+  -F level=standard \
+  -F output_mode=webhook \
+  -F webhook_url=https://dms.example.com/api/UpdateDocument \
+  -F webhook_template=therefore_update_document \
+  -F 'webhook_extra={"doc_no": 123}'
+```
+
+Blocks until redaction **and** webhook delivery are complete, then returns:
+```json
+{
+  "status": "completed",
+  "job_id": "a1b2c3d4-...",
+  "filename": "document.pdf",
+  "level": "standard",
+  "page_count": 3,
+  "entities_found": {"PERSON": 2, "CREDIT_CARD": 1},
+  "processing_ms": 4821,
+  "webhook_sent": true
+}
+```
+
+Returns HTTP 500 if redaction fails. Accepts identical parameters to `/upload`. Useful when the caller (e.g. a Therefore workflow REST Call task) needs the document updated before the workflow continues.
 
 **Form fields:**
 
