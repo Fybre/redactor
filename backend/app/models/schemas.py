@@ -35,7 +35,7 @@ class SystemConfig(BaseModel):
     folder_polling_enabled: bool
     poll_interval_seconds: int
     default_redaction_level: str
-    default_output_mode: str
+    default_output_mode: str = "directory"
     retain_originals: bool
     retention_days: int
     worker_concurrency: int

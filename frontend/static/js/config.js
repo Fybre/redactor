@@ -44,6 +44,7 @@ async function saveConfig() {
     retention_days: parseInt(document.getElementById('cfg-retention-days').value),
     worker_concurrency: parseInt(document.getElementById('cfg-concurrency').value),
     max_file_size_mb: parseInt(document.getElementById('cfg-max-size').value),
+    default_output_mode: document.getElementById('cfg-output-mode').value,
     ocr_language: document.getElementById('cfg-ocr-lang').value,
     detection_strategy: document.getElementById('cfg-detection-strategy').value,
     llm_base_url: document.getElementById('cfg-llm-base-url').value || 'http://ollama:11434/v1',
