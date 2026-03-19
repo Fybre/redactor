@@ -138,11 +138,15 @@
               <div class="form-group">
                 <label>Model Name</label>
                 <div style="display:flex;gap:8px;align-items:center">
-                  <input type="text" id="cfg-llm-model" placeholder="llama3.2:3b" list="ollama-models-list" oninput="checkModelStatus()" style="flex:1;min-width:0">
-                  <datalist id="ollama-models-list"></datalist>
+                  <input type="text" id="cfg-llm-model" placeholder="llama3.2:3b" oninput="checkModelStatus()" style="flex:1;min-width:0">
                   <span id="ollama-model-status" style="font-size:11px;white-space:nowrap"></span>
                   <button type="button" id="ollama-pull-btn" class="btn btn-ghost btn-sm" onclick="pullOllamaModel()" style="display:none">Pull</button>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="loadOllamaModels()" title="Refresh model list">↻</button>
+                </div>
+                <div id="ollama-models-available" style="display:none;margin-top:6px">
+                  <select id="ollama-models-select" onchange="selectOllamaModel(this.value)" style="width:100%">
+                    <option value="">— pulled models (select to use) —</option>
+                  </select>
                 </div>
                 <div id="ollama-pull-progress" style="display:none;margin-top:8px">
                   <div style="display:flex;align-items:center;gap:8px">

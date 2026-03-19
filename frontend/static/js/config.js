@@ -36,21 +36,32 @@ function updateLLMFields() {
 let _ollamaModels = [];
 
 async function loadOllamaModels() {
-  const statusEl = document.getElementById('ollama-model-status');
-  const pullBtn  = document.getElementById('ollama-pull-btn');
-  const datalist = document.getElementById('ollama-models-list');
+  const statusEl  = document.getElementById('ollama-model-status');
+  const pullBtn   = document.getElementById('ollama-pull-btn');
+  const select    = document.getElementById('ollama-models-select');
+  const availDiv  = document.getElementById('ollama-models-available');
   if (!statusEl) return;
   statusEl.textContent = '';
   try {
     const res = await api.get('/config/ollama/models');
     _ollamaModels = res.models || [];
-    datalist.innerHTML = _ollamaModels.map(m => `<option value="${m}">`).join('');
+    select.innerHTML = '<option value="">— pulled models (select to use) —</option>' +
+      _ollamaModels.map(m => `<option value="${m}">${m}</option>`).join('');
+    availDiv.style.display = _ollamaModels.length ? '' : 'none';
     checkModelStatus();
   } catch {
     statusEl.textContent = 'Ollama unreachable';
     statusEl.style.color = 'var(--muted)';
     pullBtn.style.display = 'none';
+    document.getElementById('ollama-models-available').style.display = 'none';
   }
+}
+
+function selectOllamaModel(val) {
+  if (!val) return;
+  document.getElementById('cfg-llm-model').value = val;
+  document.getElementById('ollama-models-select').value = '';
+  checkModelStatus();
 }
 
 function checkModelStatus() {
