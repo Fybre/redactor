@@ -55,6 +55,7 @@ ENTITY_LEVELS = {
 # Human-readable descriptions for the UI
 ENTITY_DESCRIPTIONS = {
     "CREDIT_CARD": "Credit card numbers",
+    "CVV": "CVV / card security codes (use with Credit Card — LLM only)",
     "CRYPTO": "Cryptocurrency wallet addresses",
     "IBAN_CODE": "IBAN bank account numbers",
     "US_SSN": "US Social Security Numbers",
