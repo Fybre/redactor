@@ -247,6 +247,84 @@ async function deleteWebhook(id) {
 
 // ── Templates ─────────────────────────────────────────────
 
+const SENSITIVE_HEADER_PATTERNS = ['authorization', 'token', 'key', 'secret', 'password', 'credential', 'auth'];
+
+function isSensitiveHeader(name) {
+  const lower = name.toLowerCase();
+  return SENSITIVE_HEADER_PATTERNS.some(p => lower.includes(p));
+}
+
+function addHeaderRow(name, value) {
+  const isRedacted = value === '__redacted__';
+  const isSensitive = isSensitiveHeader(name);
+
+  const editor = document.getElementById('tmpl-headers-editor');
+  const row = document.createElement('div');
+  row.className = 'header-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'header-name';
+  nameInput.placeholder = 'Header name';
+  nameInput.value = name;
+  nameInput.style.flex = '1';
+
+  const valueInput = document.createElement('input');
+  valueInput.className = 'header-value';
+  valueInput.style.flex = '2';
+  valueInput.type = (isSensitive || isRedacted) ? 'password' : 'text';
+
+  if (isRedacted) {
+    valueInput.value = '';
+    valueInput.placeholder = 'Saved — type to replace';
+  } else {
+    valueInput.value = value;
+    valueInput.placeholder = 'Value';
+  }
+
+  nameInput.addEventListener('input', () => {
+    if (valueInput.value !== '') {
+      valueInput.type = isSensitiveHeader(nameInput.value) ? 'password' : 'text';
+    }
+  });
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'btn btn-ghost btn-sm';
+  toggleBtn.title = 'Show/hide';
+  toggleBtn.textContent = '👁';
+  toggleBtn.onclick = () => {
+    valueInput.type = valueInput.type === 'password' ? 'text' : 'password';
+  };
+  if (isRedacted) toggleBtn.style.display = 'none';
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn btn-ghost btn-sm';
+  removeBtn.textContent = '✕';
+  removeBtn.onclick = () => row.remove();
+
+  row.append(nameInput, valueInput, toggleBtn, removeBtn);
+  editor.appendChild(row);
+}
+
+function renderHeaderEditor(headers) {
+  document.getElementById('tmpl-headers-editor').innerHTML = '';
+  Object.entries(headers).forEach(([k, v]) => addHeaderRow(k, v));
+}
+
+function readHeadersFromEditor() {
+  const rows = document.querySelectorAll('#tmpl-headers-editor .header-row');
+  const result = {};
+  rows.forEach(row => {
+    const name = row.querySelector('.header-name').value.trim();
+    const value = row.querySelector('.header-value').value;
+    if (name) result[name] = value;
+  });
+  return Object.keys(result).length ? result : null;
+}
+
 let editingTemplate = null;
 
 async function loadTemplates() {
@@ -283,7 +361,7 @@ function openNewTemplate() {
   document.getElementById('tmpl-name').value = '';
   document.getElementById('tmpl-name').disabled = false;
   document.getElementById('tmpl-desc').value = '';
-  document.getElementById('tmpl-headers').value = '';
+  document.getElementById('tmpl-headers-editor').innerHTML = '';
   document.getElementById('tmpl-body').value = '';
   document.getElementById('template-modal').classList.add('open');
 }
@@ -298,7 +376,7 @@ async function editTemplate(name) {
     document.getElementById('tmpl-name').value = name;
     document.getElementById('tmpl-name').disabled = true;
     document.getElementById('tmpl-desc').value = t.description || '';
-    document.getElementById('tmpl-headers').value = t.headers && Object.keys(t.headers).length ? JSON.stringify(t.headers, null, 2) : '';
+    renderHeaderEditor(t.headers && Object.keys(t.headers).length ? t.headers : {});
     document.getElementById('tmpl-body').value = t.body || '';
     document.getElementById('template-modal').classList.add('open');
   } catch {}
@@ -313,16 +391,10 @@ async function saveTemplate() {
   const name = document.getElementById('tmpl-name').value.trim();
   const desc = document.getElementById('tmpl-desc').value.trim();
   const body = document.getElementById('tmpl-body').value.trim();
-  const headersRaw = document.getElementById('tmpl-headers').value.trim();
   if (!name) { showToast('Template name is required', 'error'); return; }
   if (!body) { showToast('Template body is required', 'error'); return; }
 
-  let headers = null;
-  if (headersRaw) {
-    try { headers = JSON.parse(headersRaw); } catch {
-      showToast('Headers must be a valid JSON object', 'error'); return;
-    }
-  }
+  const headers = readHeadersFromEditor();
 
   const payload = { name, description: desc, body, headers };
   try {

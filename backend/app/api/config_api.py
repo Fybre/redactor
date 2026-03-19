@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.config import load_runtime_config, save_runtime_config
+from app.config import load_runtime_config, save_runtime_config, settings
 from app.core.presidio_engine import get_supported_entities
 from app.core.redaction_levels import ENTITY_DESCRIPTIONS, LEVEL_DESCRIPTIONS
 from app.models.schemas import SystemConfig, ProfileCreate, WebhookConfig
@@ -142,6 +142,29 @@ async def delete_webhook(webhook_id: str):
 
 # --- Templates ---
 
+_SENSITIVE_HEADER_PATTERNS = ['authorization', 'token', 'key', 'secret', 'password', 'credential', 'auth']
+
+
+def _is_sensitive_header(name: str) -> bool:
+    lower = name.lower()
+    return any(p in lower for p in _SENSITIVE_HEADER_PATTERNS)
+
+
+def _mask_headers(headers: dict) -> dict:
+    if settings.allow_header_reveal:
+        return headers
+    return {k: ("__redacted__" if _is_sensitive_header(k) else v) for k, v in headers.items()}
+
+
+def _merge_headers(existing: dict, incoming: dict) -> dict:
+    if settings.allow_header_reveal:
+        return incoming or {}
+    merged = dict(incoming or {})
+    for k, v in merged.items():
+        if _is_sensitive_header(k) and v == "":
+            merged[k] = (existing or {}).get(k, "")
+    return merged
+
 class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = ""
@@ -158,7 +181,7 @@ async def list_templates():
             "name": name,
             "description": t.get("description", ""),
             "body": t.get("body", ""),
-            "headers": t.get("headers") or {},
+            "headers": _mask_headers(t.get("headers") or {}),
         }
         for name, t in templates.items()
     ]
@@ -188,7 +211,7 @@ async def update_template(name: str, template: TemplateCreate):
     templates[name] = {
         "description": template.description,
         "body": template.body,
-        "headers": template.headers or {},
+        "headers": _merge_headers(templates[name].get("headers", {}), template.headers),
     }
     save_runtime_config(config)
     return {"status": "updated", "name": name}

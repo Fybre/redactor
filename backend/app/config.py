@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # Security
+    allow_header_reveal: bool = True
+
     class Config:
         env_file = ".env"
         extra = "ignore"
