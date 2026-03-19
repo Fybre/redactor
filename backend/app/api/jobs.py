@@ -148,6 +148,22 @@ async def download_original(job_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.delete("")
+async def delete_all_jobs(db: AsyncSession = Depends(get_db)):
+    """Delete all completed, failed, and cancelled jobs and their files."""
+    q = select(Job).where(Job.status.in_([JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]))
+    jobs = (await db.execute(q)).scalars().all()
+    count = 0
+    for job in jobs:
+        safe_delete(job.output_path)
+        safe_delete(job.input_path)
+        safe_delete(job.original_path)
+        await db.delete(job)
+        count += 1
+    await db.commit()
+    return {"status": "deleted", "count": count}
+
+
 @router.delete("/{job_id}")
 async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
     job = await db.get(Job, job_id)

@@ -40,7 +40,9 @@ function selectAllEntities(sel) {
 function onLevelChange() {
   const level = document.querySelector('input[name=level]:checked')?.value;
   const customPanel = document.getElementById('custom-entities-panel');
+  const profilePanel = document.getElementById('profile-level-panel');
   if (customPanel) customPanel.style.display = level === 'custom' ? 'block' : 'none';
+  if (profilePanel) profilePanel.style.display = level === 'profile' ? 'block' : 'none';
 
   // Update radio option styling
   document.querySelectorAll('.radio-option').forEach(opt => {
@@ -130,12 +132,15 @@ function renderFileList() {
 async function loadProfiles() {
   try {
     const profiles = await api.get('/config/profiles');
+    const options = Object.entries(profiles).map(([name, p]) =>
+      `<option value="${name}">${name} (${p.entities.length} entities)</option>`
+    ).join('');
+
     const sel = document.getElementById('profile-select');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">None (use level settings)</option>' +
-      Object.entries(profiles).map(([name, p]) =>
-        `<option value="${name}">${name} (${p.entities.length} entities)</option>`
-      ).join('');
+    if (sel) sel.innerHTML = '<option value="">None (use level settings)</option>' + options;
+
+    const levelSel = document.getElementById('profile-level-select');
+    if (levelSel) levelSel.innerHTML = '<option value="">— Select a profile —</option>' + options;
   } catch {}
 }
 
@@ -154,14 +159,24 @@ async function loadWebhookTemplates() {
 async function submitFiles() {
   if (!selectedFiles.length) return;
 
-  const level = document.querySelector('input[name=level]:checked')?.value || 'standard';
+  let level = document.querySelector('input[name=level]:checked')?.value || 'standard';
   const outputMode = document.querySelector('input[name=output_mode]:checked')?.value || 'directory';
   const webhookUrl = document.getElementById('webhook-url')?.value || '';
   const webhookTemplate = document.getElementById('webhook-template')?.value || '';
-  const profileName = document.getElementById('profile-select')?.value || '';
+
+  // Profile level: send profile_name, backend sets level=custom
+  let profileName = document.getElementById('profile-select')?.value || '';
+  if (level === 'profile') {
+    profileName = document.getElementById('profile-level-select')?.value || '';
+    if (!profileName) {
+      showToast('Select a profile', 'error');
+      return;
+    }
+    level = 'custom';
+  }
 
   let customEntities = null;
-  if (level === 'custom') {
+  if (level === 'custom' && !profileName) {
     customEntities = Array.from(document.querySelectorAll('#entity-grid input:checked')).map(cb => cb.value);
     if (!customEntities.length) {
       showToast('Select at least one entity type for custom redaction', 'error');

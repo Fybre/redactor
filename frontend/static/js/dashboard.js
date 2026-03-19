@@ -93,6 +93,16 @@ function setFilter(status) {
   loadJobs();
 }
 
+async function clearHistory() {
+  if (!confirm('Delete all completed, failed, and cancelled jobs and their files? This cannot be undone.')) return;
+  try {
+    const res = await api.delete('/jobs');
+    showToast(`Cleared ${res.count} job(s)`, 'success');
+    loadJobs();
+    loadStats();
+  } catch {}
+}
+
 async function deleteJob(id) {
   if (!confirm('Delete this job and its files?')) return;
   try {

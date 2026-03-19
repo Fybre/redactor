@@ -95,6 +95,23 @@
                   <div class="option-desc">Choose specific entity types below</div>
                 </div>
               </label>
+              <label class="radio-option" onclick="onLevelChange()">
+                <input type="radio" name="level" value="profile">
+                <div>
+                  <div class="option-label">Profile</div>
+                  <div class="option-desc">Use a saved redaction profile</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Profile picker panel -->
+          <div class="card" id="profile-level-panel" style="display:none;margin-bottom:16px">
+            <div class="card-title">Select Profile</div>
+            <div class="form-group" style="margin:0">
+              <select id="profile-level-select">
+                <option value="">— Select a profile —</option>
+              </select>
             </div>
           </div>
 
