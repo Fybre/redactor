@@ -53,6 +53,10 @@ def process_document(
     custom_entities: Optional[list] = None,
     redaction_color: tuple = (0, 0, 0),
     ocr_language: str = "eng",
+    strategy: str = "presidio",
+    llm_base_url: Optional[str] = None,
+    llm_model: Optional[str] = None,
+    llm_api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Auto-detect document type and route to the correct redactor.
@@ -64,16 +68,18 @@ def process_document(
     ext = Path(input_path).suffix.lower()
     mime = _detect_mime(input_path)
 
-    logger.info(f"Processing {os.path.basename(input_path)} | ext={ext} mime={mime} level={level}")
+    logger.info(f"Processing {os.path.basename(input_path)} | ext={ext} mime={mime} level={level} strategy={strategy}")
 
     if ext == PDF_EXTENSION or mime == "application/pdf":
         # For PDFs, redact_pdf handles both text-layer pages and scanned pages per-page
         return redact_pdf(
-            input_path, output_path, level, custom_entities, redaction_color, ocr_language
+            input_path, output_path, level, custom_entities, redaction_color, ocr_language,
+            strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
         )
     elif ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
         return redact_image_file(
-            input_path, output_path, level, custom_entities, redaction_color, ocr_language
+            input_path, output_path, level, custom_entities, redaction_color, ocr_language,
+            strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
         )
     else:
         raise ValueError(f"Unsupported file type: ext={ext}, mime={mime}")

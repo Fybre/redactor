@@ -115,6 +115,35 @@
               </select>
             </div>
           </div>
+
+          <div class="card" style="grid-column:1/-1">
+            <div class="card-title">Detection</div>
+            <div class="form-group">
+              <label>Detection Strategy</label>
+              <select id="cfg-detection-strategy" onchange="updateLLMFields()">
+                <option value="presidio">Presidio only (pattern matching + NLP)</option>
+                <option value="llm">LLM only (contextual, self-hosted)</option>
+                <option value="both">Both — Presidio + LLM (best recall)</option>
+              </select>
+            </div>
+            <div id="llm-fields" style="display:none">
+              <div class="form-group">
+                <label>LLM Base URL</label>
+                <input type="text" id="cfg-llm-base-url" placeholder="http://ollama:11434/v1">
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                  Default works with the built-in Ollama service (<code>docker compose --profile ollama up</code>).
+                  Change to your own Ollama, vLLM, LM Studio, or llama.cpp URL.
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Model Name</label>
+                <input type="text" id="cfg-llm-model" placeholder="llama3.2:3b">
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                  Recommended: <code>llama3.2:3b</code> (lightweight), <code>llama3.1:8b</code> (better accuracy), <code>qwen2.5:7b</code> (structured output)
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div style="margin-top:16px">

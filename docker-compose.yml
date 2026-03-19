@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build:
@@ -42,8 +40,32 @@ services:
     networks:
       - internal
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: redactor-ollama
+    restart: unless-stopped
+    profiles: [ollama]
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    environment:
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+    volumes:
+      - ollama-data:/root/.ollama
+      - ./ollama-entrypoint.sh:/entrypoint.sh:ro
+    networks:
+      - internal
+    # Uncomment for GPU support (NVIDIA):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
 volumes:
   redactor-data:
+    driver: local
+  ollama-data:
     driver: local
 
 networks:

@@ -71,6 +71,10 @@ def redact_pdf(
     custom_entities: list = None,
     redaction_color: tuple = (0, 0, 0),
     ocr_language: str = "eng",
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
 ) -> Dict[str, Any]:
     """
     Redact a text-layer PDF. Returns stats dict with page_count and entities_found.
@@ -91,11 +95,17 @@ def redact_pdf(
         if len(full_text.strip()) < 10:
             # Scanned page — use OCR-based redaction inline
             logger.debug(f"Page {page_num}: no text layer, using OCR redaction")
-            redact_image_page(page, level, custom_entities, redaction_color, ocr_language, total_entities)
+            redact_image_page(
+                page, level, custom_entities, redaction_color, ocr_language, total_entities,
+                strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+            )
             continue
 
         char_map = _build_char_to_word_map(text_blocks)
-        pii_results = analyze_text(full_text, level, custom_entities)
+        pii_results = analyze_text(
+            full_text, level, custom_entities,
+            strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+        )
 
         for result in pii_results:
             total_entities[result.entity_type] += 1

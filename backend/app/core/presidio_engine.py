@@ -33,34 +33,77 @@ def get_analyzer() -> AnalyzerEngine:
     return _analyzer
 
 
-def analyze_text(text: str, level: str, custom_entities: list = None, language: str = "en") -> list:
+def analyze_text(
+    text: str,
+    level: str,
+    custom_entities: list = None,
+    language: str = "en",
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = "ollama",
+) -> list:
     """
-    Returns list of RecognizerResult with start, end, entity_type, score.
+    Returns list of span objects with start, end, entity_type, score.
+
+    strategy="presidio" (default): Presidio only.
+    strategy="llm": LLM only.
+    strategy="both": Presidio + LLM merged; LLM spans that overlap >80% with a
+                     Presidio span are dropped (Presidio is more precise on structured data).
     """
     if not text or not text.strip():
         return []
 
-    analyzer = get_analyzer()
     entities = get_entities_for_level(level, custom_entities)
 
-    # Filter to entities the analyzer actually supports
-    supported = set(analyzer.get_supported_entities(language=language))
-    active_entities = [e for e in entities if e in supported]
+    presidio_results = []
+    if strategy in ("presidio", "both"):
+        analyzer = get_analyzer()
+        supported = set(analyzer.get_supported_entities(language=language))
+        active_entities = [e for e in entities if e in supported]
+        if active_entities:
+            try:
+                presidio_results = analyzer.analyze(
+                    text=text,
+                    entities=active_entities,
+                    language=language,
+                    score_threshold=0.4,
+                )
+            except Exception as e:
+                logger.error(f"Presidio analysis error: {e}")
 
-    if not active_entities:
-        return []
+    if strategy == "presidio":
+        return presidio_results
 
-    try:
-        results = analyzer.analyze(
-            text=text,
-            entities=active_entities,
-            language=language,
-            score_threshold=0.4,
+    # LLM path
+    from app.core.llm_engine import analyze_text_llm
+    llm_results = analyze_text_llm(
+        text=text,
+        entity_types=entities,
+        base_url=llm_base_url or "http://ollama:11434/v1",
+        model=llm_model or "llama3.2:3b",
+        api_key=llm_api_key or "ollama",
+    )
+
+    if strategy == "llm":
+        return llm_results
+
+    # strategy == "both": merge, dropping LLM spans that substantially overlap Presidio
+    def _overlap_ratio(a_start, a_end, b_start, b_end) -> float:
+        overlap = max(0, min(a_end, b_end) - max(a_start, b_start))
+        a_len = a_end - a_start
+        return overlap / a_len if a_len else 0.0
+
+    merged = list(presidio_results)
+    for llm_span in llm_results:
+        dominated = any(
+            _overlap_ratio(llm_span.start, llm_span.end, p.start, p.end) > 0.8
+            for p in presidio_results
         )
-        return results
-    except Exception as e:
-        logger.error(f"Presidio analysis error: {e}")
-        return []
+        if not dominated:
+            merged.append(llm_span)
+
+    return merged
 
 
 def get_supported_entities(language: str = "en") -> List[str]:

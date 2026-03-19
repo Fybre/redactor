@@ -72,12 +72,19 @@ def redact_image_file(
     custom_entities: list = None,
     redaction_color: tuple = (0, 0, 0),
     ocr_language: str = "eng",
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
 ) -> Dict[str, Any]:
     """Redact a standalone image file (PNG/JPG/TIFF)."""
     img = Image.open(input_path).convert("RGB")
     entities_found: Dict[str, int] = defaultdict(int)
 
-    redacted = _redact_pil_image(img, level, custom_entities, redaction_color, ocr_language, entities_found)
+    redacted = _redact_pil_image(
+        img, level, custom_entities, redaction_color, ocr_language, entities_found,
+        strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+    )
     redacted.save(output_path)
 
     return {"page_count": 1, "entities_found": dict(entities_found)}
@@ -90,6 +97,10 @@ def _redact_pil_image(
     redaction_color: tuple,
     ocr_language: str,
     entities_counter: dict,
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
 ) -> Image.Image:
     """Apply OCR-based PII redaction to a PIL Image. Returns modified copy."""
     try:
@@ -102,7 +113,10 @@ def _redact_pil_image(
     if not full_text.strip():
         return img
 
-    pii_results = analyze_text(full_text, level, custom_entities)
+    pii_results = analyze_text(
+        full_text, level, custom_entities,
+        strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+    )
     if not pii_results:
         return img
 
@@ -124,6 +138,10 @@ def redact_image_page(
     redaction_color: tuple,
     ocr_language: str,
     entities_counter: dict,
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
 ) -> None:
     """
     Redact a PyMuPDF page that has no text layer (scanned).
@@ -135,7 +153,10 @@ def redact_image_page(
     pix = page.get_pixmap(matrix=mat, alpha=False)
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-    redacted = _redact_pil_image(img, level, custom_entities, redaction_color, ocr_language, entities_counter)
+    redacted = _redact_pil_image(
+        img, level, custom_entities, redaction_color, ocr_language, entities_counter,
+        strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+    )
 
     # Convert back to fitz Pixmap and replace page content
     img_bytes = io.BytesIO()

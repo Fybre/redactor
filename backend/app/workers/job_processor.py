@@ -65,6 +65,10 @@ async def _process_job(job_id: str) -> None:
             redaction_color = tuple(config.get("redaction_color", [0, 0, 0]))
             ocr_language = config.get("ocr_language", "eng")
             retain = config.get("retain_originals", settings.retain_originals)
+            detection_strategy = config.get("detection_strategy", "presidio")
+            llm_base_url = config.get("llm_base_url", "http://ollama:11434/v1")
+            llm_model = config.get("llm_model", "llama3.2:3b")
+            llm_api_key = config.get("llm_api_key", "ollama")
 
             output_path = get_output_path(job_id, job.filename)
 
@@ -83,6 +87,10 @@ async def _process_job(job_id: str) -> None:
                 custom_entities=job.custom_entities,
                 redaction_color=redaction_color,
                 ocr_language=ocr_language,
+                strategy=detection_strategy,
+                llm_base_url=llm_base_url,
+                llm_model=llm_model,
+                llm_api_key=llm_api_key,
             )
 
             t_end = datetime.now(timezone.utc)

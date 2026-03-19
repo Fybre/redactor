@@ -16,7 +16,16 @@ async function loadConfig() {
     document.getElementById('cfg-concurrency').value = config.worker_concurrency;
     document.getElementById('cfg-max-size').value = config.max_file_size_mb;
     document.getElementById('cfg-ocr-lang').value = config.ocr_language || 'eng';
+    document.getElementById('cfg-detection-strategy').value = config.detection_strategy || 'presidio';
+    document.getElementById('cfg-llm-base-url').value = config.llm_base_url || 'http://ollama:11434/v1';
+    document.getElementById('cfg-llm-model').value = config.llm_model || 'llama3.2:3b';
+    updateLLMFields();
   } catch {}
+}
+
+function updateLLMFields() {
+  const strategy = document.getElementById('cfg-detection-strategy').value;
+  document.getElementById('llm-fields').style.display = strategy === 'presidio' ? 'none' : '';
 }
 
 function toggleSwitch(id) {
@@ -36,6 +45,10 @@ async function saveConfig() {
     worker_concurrency: parseInt(document.getElementById('cfg-concurrency').value),
     max_file_size_mb: parseInt(document.getElementById('cfg-max-size').value),
     ocr_language: document.getElementById('cfg-ocr-lang').value,
+    detection_strategy: document.getElementById('cfg-detection-strategy').value,
+    llm_base_url: document.getElementById('cfg-llm-base-url').value || 'http://ollama:11434/v1',
+    llm_model: document.getElementById('cfg-llm-model').value || 'llama3.2:3b',
+    llm_api_key: 'ollama',
     redaction_color: [0, 0, 0],
     allowed_extensions: ['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'tif'],
     webhooks: await api.get('/config/webhooks').catch(() => []) || [],
