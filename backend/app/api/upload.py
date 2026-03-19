@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings, get_runtime_value
@@ -40,8 +40,36 @@ def _parse_json_field(value: Optional[str], field_name: str, expect_type: type):
         raise HTTPException(status_code=400, detail=f"{field_name} must be a valid JSON {expect_type.__name__}")
 
 
+async def _collect_prefixed_headers(request: Request) -> dict:
+    """Collect webhook_header_<Name> form fields into a headers dict."""
+    form = await request.form()
+    result = {}
+    for key, value in form.multi_items():
+        if key.startswith("webhook_header_"):
+            name = key[len("webhook_header_"):]
+            if name:
+                result[name] = str(value)
+    return result
+
+
+async def _collect_prefixed_extra(request: Request) -> dict:
+    """Collect webhook_extra_<key> form fields into an extra-vars dict.
+    Values are kept as strings; templates render them verbatim so integer
+    fields like {{ doc_no }} in a JSON body still produce unquoted numbers.
+    """
+    form = await request.form()
+    result = {}
+    for key, value in form.multi_items():
+        if key.startswith("webhook_extra_"):
+            name = key[len("webhook_extra_"):]
+            if name:
+                result[name] = str(value)
+    return result
+
+
 @router.post("/upload")
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     # Therefore-compatible metadata envelope: all params can be sent as a single
     # JSON object in the "metadata" multipart part (Therefore's Body tab) instead
@@ -95,6 +123,16 @@ async def upload_document(
         parsed_webhook_extra = _we_raw
     else:
         parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
+
+    # Merge any webhook_header_<Name> fields (prefix wins over JSON field)
+    prefix_headers = await _collect_prefixed_headers(request)
+    if prefix_headers:
+        parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
+
+    # Merge any webhook_extra_<key> fields (prefix wins over JSON field)
+    prefix_extra = await _collect_prefixed_extra(request)
+    if prefix_extra:
+        parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
 
     # ── Validate level
     valid_levels = {e.value for e in RedactionLevel}
@@ -169,6 +207,7 @@ async def upload_document(
 
 @router.post("/upload-sync")
 async def upload_document_sync(
+    request: Request,
     file: UploadFile = File(...),
     metadata: Optional[str] = Form(None),
     level: Optional[str] = Form(None),
@@ -223,6 +262,16 @@ async def upload_document_sync(
         parsed_webhook_extra = _we_raw
     else:
         parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
+
+    # Merge any webhook_header_<Name> fields (prefix wins over JSON field)
+    prefix_headers = await _collect_prefixed_headers(request)
+    if prefix_headers:
+        parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
+
+    # Merge any webhook_extra_<key> fields (prefix wins over JSON field)
+    prefix_extra = await _collect_prefixed_extra(request)
+    if prefix_extra:
+        parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
 
     valid_levels = {e.value for e in RedactionLevel}
     if level not in valid_levels:

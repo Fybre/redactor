@@ -230,6 +230,8 @@ Returns HTTP 500 if redaction fails. Accepts identical parameters to `/upload`. 
 | `webhook_include_file` | No | `true` / `false` | Embed redacted file as base64 in the webhook payload |
 | `webhook_secret` | No | string | HMAC signing secret |
 | `webhook_extra` | No | JSON object | Extra key/value pairs merged into the template context |
+| `webhook_header_<Name>` | No | string | Set a single webhook header — e.g. `webhook_header_Authorization: Basic xxx`. Merged over any headers in `webhook_headers`. Useful when the caller cannot reliably encode JSON. |
+| `webhook_extra_<key>` | No | string | Set a single template variable — e.g. `webhook_extra_doc_no: 123`. Merged over any keys in `webhook_extra`. Useful for the same reason. |
 
 **Response:**
 ```json
@@ -365,6 +367,26 @@ curl -X POST http://localhost:8080/api/v1/jobs/upload \
 
 Template usage: `{{ category_no | default(57) }}`
 
+### Prefixed header and extra fields
+
+Some callers (notably Therefore's REST Call task) mangle JSON string values, making `webhook_headers={"Authorization":"..."}` unreliable. As an alternative, supply each header or variable as its own plain-text field using a `webhook_header_<Name>` or `webhook_extra_<key>` prefix — no JSON required:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/jobs/upload-sync \
+  -F file=@document.pdf \
+  -F output_mode=webhook \
+  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument \
+  -F webhook_template=therefore_update_document \
+  -F webhook_include_file=true \
+  -F webhook_header_Authorization='Basic dXNlcjpwYXNz' \
+  -F webhook_header_TenantName=acme \
+  -F 'webhook_header_Content-Type=application/json' \
+  -F webhook_extra_doc_no=4521 \
+  -F webhook_extra_stream_no=0
+```
+
+Prefix fields are merged after the JSON fields, so they take precedence when the same key appears in both. Both approaches can be mixed freely.
+
 ### Duplicating templates
 
 Use the **Duplicate** button in Configuration → Webhook Templates to copy a template (including its headers). Useful when you need the same auth credentials but different category numbers or endpoint-specific field mappings.
@@ -400,6 +422,57 @@ curl -X POST http://localhost:8080/api/v1/jobs/upload \
 ## Therefore™ Integration
 
 Redactor can post directly to Therefore's REST API on job completion using a webhook template — no adapter service required.
+
+Three built-in templates cover the common cases: `therefore_create_document`, `therefore_update_document`, and `therefore_update_document2`.
+
+### CreateDocument flow (new document from Therefore)
+
+See [Step 1–3](#step-1--store-credentials-in-the-webhook-template) below for the full setup. The short version:
+
+1. Store credentials in the `therefore_create_document` template's HTTP Headers
+2. In Therefore, add a REST Call task → `POST /upload` with `output_mode=webhook`, `webhook_template=therefore_create_document`, `webhook_include_file=true`
+
+### UpdateDocument flow (redact an existing Therefore document)
+
+Use this when the document already exists in Therefore and you want to replace its stream with the redacted version — for example, triggered from a review workflow on an existing document.
+
+**Template to use:** `therefore_update_document`
+
+The template expects two variables: `doc_no` (the Therefore document number) and optionally `stream_no` (defaults to `0`). It calls `UpdateDocument` with the redacted file replacing the specified stream.
+
+**Therefore REST Call task fields** — because Therefore's REST Call task mangles JSON strings, pass credentials and variables as individual prefixed fields rather than JSON objects:
+
+| Field | Value |
+|---|---|
+| `output_mode` | `webhook` |
+| `webhook_url` | `https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument` |
+| `webhook_template` | `therefore_update_document` |
+| `webhook_include_file` | `true` |
+| `webhook_header_Authorization` | `Basic <base64(user:pass)>` |
+| `webhook_header_TenantName` | `acme` |
+| `webhook_header_Content-Type` | `application/json` |
+| `webhook_extra_doc_no` | `%DocNo%` (Therefore workflow variable) |
+| `webhook_extra_stream_no` | `0` |
+
+Use `/upload-sync` as the endpoint so the REST Call task blocks until redaction and delivery are complete before the workflow continues.
+
+**Equivalent curl for testing:**
+```bash
+curl -X POST http://redactor-host:8080/api/v1/jobs/upload-sync \
+  -F file=@document.pdf \
+  -F level=standard \
+  -F output_mode=webhook \
+  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument \
+  -F webhook_template=therefore_update_document \
+  -F webhook_include_file=true \
+  -F webhook_header_Authorization='Basic dXNlcjpwYXNz' \
+  -F webhook_header_TenantName=acme \
+  -F 'webhook_header_Content-Type=application/json' \
+  -F webhook_extra_doc_no=4521 \
+  -F webhook_extra_stream_no=0
+```
+
+**Type note:** `doc_no` arrives as a string but the `therefore_update_document` template uses `"DocNo": {{ doc_no }}` (no surrounding quotes), so `"4521"` renders as the integer `4521` in the JSON body — correct for Therefore's API.
 
 ### Step 1 — Store credentials in the webhook template
 

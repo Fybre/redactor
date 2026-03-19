@@ -443,7 +443,10 @@
                 <tr><td><code>webhook_template</code></td><td>No</td><td>Name of a saved Jinja2 template to render the webhook body</td></tr>
                 <tr><td><code>webhook_include_file</code></td><td>No</td><td><code>true</code> — embed redacted file as base64 in the webhook payload</td></tr>
                 <tr><td><code>webhook_secret</code></td><td>No</td><td>HMAC signing secret for the webhook request</td></tr>
+                <tr><td><code>webhook_headers</code></td><td>No</td><td>JSON object — HTTP headers to add to the webhook request, e.g. <code>{"Authorization":"Basic xxx"}</code></td></tr>
                 <tr><td><code>webhook_extra</code></td><td>No</td><td>JSON object — keys become available as variables in the webhook template</td></tr>
+                <tr><td><code>webhook_header_&lt;Name&gt;</code></td><td>No</td><td>Set a single webhook header without JSON — e.g. <code>webhook_header_Authorization: Basic xxx</code>. Merged over <code>webhook_headers</code>; prefix wins on conflict.</td></tr>
+                <tr><td><code>webhook_extra_&lt;key&gt;</code></td><td>No</td><td>Set a single template variable without JSON — e.g. <code>webhook_extra_doc_no: 4521</code>. Merged over <code>webhook_extra</code>; prefix wins on conflict.</td></tr>
               </tbody>
             </table>
           </section>
@@ -591,7 +594,7 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
                 <tr><td><code>file_data</code></td><td>Base64-encoded redacted file (requires <code>webhook_include_file=true</code>)</td></tr>
                 <tr><td><code>file_name</code></td><td>Output filename</td></tr>
                 <tr><td><code>file_size_bytes</code></td><td>Output file size in bytes</td></tr>
-                <tr><td><em>any key from <code>webhook_extra</code></em></td><td>Merged in from the per-job <code>webhook_extra</code> JSON object</td></tr>
+                <tr><td><em>any key from <code>webhook_extra</code> or <code>webhook_extra_&lt;key&gt;</code></em></td><td>Merged in from the per-job <code>webhook_extra</code> JSON object or individual prefixed fields</td></tr>
               </tbody>
             </table>
 
@@ -720,7 +723,8 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
             <p>
               This section covers the full round-trip workflow between Therefore and Redactor.
               The recommended approach posts directly to Therefore's REST API using a webhook
-              template — no adapter service is required.
+              template — no adapter service is required. Three built-in templates cover the common cases:
+              <code>therefore_create_document</code>, <code>therefore_update_document</code>, and <code>therefore_update_document2</code>.
             </p>
 
             <div class="callout callout-info">
@@ -728,9 +732,86 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
               <div>
                 <strong>Flow overview:</strong> Therefore sends a document to Redactor via a REST Request action →
                 Redactor redacts it → Redactor renders the webhook template and posts directly to Therefore's
-                <code>CreateDocument</code> endpoint with the redacted file as a base64 stream.
+                API endpoint with the redacted file as a base64 stream.
               </div>
             </div>
+
+            <h3>UpdateDocument flow — redact an existing Therefore document</h3>
+            <p>
+              Use this when the document already exists in Therefore and you want to replace its stream with the
+              redacted version — for example, triggered from a review or approval workflow.
+            </p>
+            <p>
+              The <code>therefore_update_document</code> template calls Therefore's <code>UpdateDocument</code> endpoint.
+              It requires two variables: <code>doc_no</code> (the Therefore document number) and optionally
+              <code>stream_no</code> (defaults to <code>0</code>).
+            </p>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠️</span>
+              <div>
+                <strong>Therefore REST Call task mangles JSON.</strong> The REST Call task in Therefore workflows
+                corrupts JSON string values passed as field values — so <code>webhook_headers={"Authorization":"Basic xxx"}</code>
+                arrives garbled. Use individual prefixed fields instead: one plain-text field per header or variable,
+                no JSON required.
+              </div>
+            </div>
+
+            <p>Configure the REST Call task in Therefore with these fields:</p>
+            <table class="level-table">
+              <thead><tr><th>Field name</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td><code>output_mode</code></td><td><code>webhook</code></td></tr>
+                <tr><td><code>webhook_url</code></td><td><code>https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument</code></td></tr>
+                <tr><td><code>webhook_template</code></td><td><code>therefore_update_document</code></td></tr>
+                <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
+                <tr><td><code>webhook_header_Authorization</code></td><td><code>Basic &lt;base64(user:pass)&gt;</code></td></tr>
+                <tr><td><code>webhook_header_TenantName</code></td><td><code>acme</code> (Therefore Online only)</td></tr>
+                <tr><td><code>webhook_header_Content-Type</code></td><td><code>application/json</code></td></tr>
+                <tr><td><code>webhook_extra_doc_no</code></td><td><code>%DocNo%</code> (Therefore workflow variable)</td></tr>
+                <tr><td><code>webhook_extra_stream_no</code></td><td><code>0</code> (optional, defaults to 0 in template)</td></tr>
+                <tr><td><code>level</code></td><td><code>standard</code> (or your preferred level)</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>
+                Point the REST Call task at <strong><code>/upload-sync</code></strong> rather than <code>/upload</code>.
+                The sync endpoint blocks until redaction <em>and</em> webhook delivery are both complete before returning,
+                so Therefore's workflow waits for the full round-trip.
+              </div>
+            </div>
+
+            <p>REST Call task URL:</p>
+            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload-sync</code></pre>
+
+            <p>Equivalent curl for testing:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload-sync \
+  -F file=@document.pdf \
+  -F level=standard \
+  -F output_mode=webhook \
+  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument \
+  -F webhook_template=therefore_update_document \
+  -F webhook_include_file=true \
+  -F webhook_header_Authorization='Basic dXNlcjpwYXNz' \
+  -F webhook_header_TenantName=acme \
+  -F 'webhook_header_Content-Type=application/json' \
+  -F webhook_extra_doc_no=4521 \
+  -F webhook_extra_stream_no=0</code></pre>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>
+                <strong>Type note:</strong> <code>doc_no</code> arrives as a string, but the template uses
+                <code>"DocNo": {{ doc_no }}</code> (no surrounding quotes), so <code>"4521"</code> renders as the
+                integer <code>4521</code> in the JSON body — correct for Therefore's API. String fields that need
+                quotes in the template already have them: <code>"Field": "{{ value }}"</code>.
+              </div>
+            </div>
+
+            <h3>CreateDocument flow — store a new document in Therefore</h3>
+            <p>Use this when Redactor should store the redacted output as a brand-new document in Therefore.</p>
 
             <h3>Step 1 — Store credentials in the webhook template</h3>
             <p>Go to <strong>Configuration → Webhook Templates</strong> and click <strong>Edit</strong> on <code>therefore_create_document</code>. In the <strong>HTTP Headers</strong> field, enter your Therefore credentials as a JSON object:</p>
@@ -788,7 +869,7 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
 }</code></pre>
 
             <h3>Step 3 — Configure Therefore's outgoing REST Request</h3>
-            <p>In Therefore, create a REST Request workflow action targeting Redactor's upload endpoint. In the <strong>Body</strong> tab, add the following fields:</p>
+            <p>In Therefore, create a REST Request workflow action targeting Redactor's upload endpoint. In the <strong>Body</strong> tab, add the following fields. Use prefixed fields for headers and extra vars to avoid JSON-mangling:</p>
 
             <table class="level-table">
               <thead><tr><th>Field name</th><th>Value</th></tr></thead>
@@ -798,13 +879,13 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
                 <tr><td><code>webhook_url</code></td><td>Your Therefore CreateDocument URL, e.g. <code>https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument</code></td></tr>
                 <tr><td><code>webhook_template</code></td><td><code>therefore_create_document</code></td></tr>
                 <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
-                <tr><td><code>webhook_extra</code></td><td><code>{"category_no": 57}</code> (optional — omit to use the template's default)</td></tr>
+                <tr><td><code>webhook_extra_category_no</code></td><td><code>57</code> (optional — omit to use the template's default)</td></tr>
               </tbody>
             </table>
 
             <div class="callout callout-tip">
               <span class="callout-icon">💡</span>
-              <div><strong>Multiple categories:</strong> Duplicate the template for each category and change the default category number in each copy, or pass <code>webhook_extra={"category_no": N}</code> per-job from Therefore to use a single template across multiple categories.</div>
+              <div><strong>Multiple categories:</strong> Duplicate the template for each category and change the default category number in each copy, or pass <code>webhook_extra_category_no=N</code> per-job from Therefore to use a single template across multiple categories.</div>
             </div>
 
             <p>The Therefore REST Request URL should point to Redactor's upload endpoint:</p>
@@ -818,7 +899,7 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
   -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument \
   -F webhook_template=therefore_create_document \
   -F webhook_include_file=true \
-  -F 'webhook_extra={"category_no": 57}'</code></pre>
+  -F webhook_extra_category_no=57</code></pre>
 
             <h3>Adapter approach (advanced)</h3>
             <p>Use an adapter service instead of the direct template approach when you need <code>PreprocessIndexData</code> (auto-numbering, calculated fields, mandatory keyword lookups) before calling <code>CreateDocument</code>. The adapter receives Redactor's standard webhook payload and handles the Therefore API calls itself.</p>
@@ -871,6 +952,8 @@ async def callback(request: Request):
 
             <h3>Notes</h3>
             <ul>
+              <li><strong>Prefixed fields vs JSON</strong> — Therefore's REST Call task mangles JSON string values in Body fields. Use <code>webhook_header_&lt;Name&gt;</code> and <code>webhook_extra_&lt;key&gt;</code> prefixed fields to pass headers and template variables as plain text. Both approaches work; prefix fields take precedence when both supply the same key.</li>
+              <li><strong>Sync vs async</strong> — use <code>/upload-sync</code> when the Therefore workflow must wait for completion (e.g. UpdateDocument) and <code>/upload</code> when it can continue immediately (e.g. fire-and-forget archival).</li>
               <li><strong>Keyword fields</strong> — if the category has mandatory keyword (dropdown) fields, resolve their values to <code>KeywordNo</code> integers using <code>GetKeywordsByFieldNo</code> before calling <code>CreateDocument</code>. This typically requires the adapter approach.</li>
               <li><strong>Field numbers</strong> — <code>FieldNo</code> must match your Therefore category definition exactly. Use <code>POST /restun/GetCategoryInfo {"CategoryNo": N, "IsAccessMaskNeeded": false}</code> to list field numbers.</li>
               <li><strong>Large files</strong> — base64 encoding adds ~33% to file size. For documents over ~20 MB, consider <code>webhook_include_file=false</code> and fetching via the <code>download_url</code> in the standard payload.</li>
