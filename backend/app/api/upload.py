@@ -78,7 +78,19 @@ async def _parse_request_params(
     output_mode, webhook_url, webhook_headers, webhook_secret,
     webhook_include_file, webhook_template, webhook_extra,
 ) -> dict:
-    """Parse and resolve all upload parameters, merging metadata envelope + form fields."""
+    """Parse and resolve all upload parameters, merging metadata envelope + form fields.
+
+    IMPORTANT — Therefore (and similar DMS systems) send ALL parameters inside a single
+    JSON "metadata" multipart part rather than as individual form fields.  Every parameter
+    added to upload_document_sync MUST be resolved via the metadata envelope fallback.
+
+    For parameters handled here, use the _get() helper which checks the direct form field
+    first, then falls back to meta.get(key).
+
+    For parameters NOT passed into this function (e.g. validation_mode,
+    completion_callback_*), add an explicit fallback block after _parse_request_params()
+    returns — see the pattern in upload_document_sync.
+    """
     meta = {}
     if metadata:
         meta = _parse_json_field(metadata, "metadata", dict) or {}
