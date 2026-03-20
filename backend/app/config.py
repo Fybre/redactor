@@ -189,7 +189,8 @@ def load_runtime_config() -> dict:
             for key, default_val in _DEFAULT_RUNTIME_CONFIG.items():
                 if isinstance(default_val, dict):
                     saved_dict = saved.get(key) or {}
-                    merged = {k: v for k, v in default_val.items() if saved_dict.get(k) is not None}
+                    # Include default entry unless it has an explicit None deletion marker in saved
+                    merged = {k: v for k, v in default_val.items() if saved_dict.get(k, True) is not None}
                     merged.update({k: v for k, v in saved_dict.items() if v is not None})
                     config[key] = merged
             return config
