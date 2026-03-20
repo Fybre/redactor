@@ -197,7 +197,7 @@
           const label = cb.closest('.entity-checkbox');
           if (label) label.classList.toggle('checked', cb.checked);
         });
-      } catch {}
+      } catch (e) { console.error(e); }
     }
   </script>
 </body>

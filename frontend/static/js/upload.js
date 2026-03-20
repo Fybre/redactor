@@ -6,7 +6,7 @@ async function loadEntities() {
     const entities = await api.get('/config/entities');
     availableEntities = entities;
     renderEntityGrid();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function renderEntityGrid() {
@@ -141,7 +141,7 @@ async function loadProfiles() {
 
     const levelSel = document.getElementById('profile-level-select');
     if (levelSel) levelSel.innerHTML = '<option value="">— Select a profile —</option>' + options;
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function loadWebhookTemplates() {
@@ -153,7 +153,7 @@ async function loadWebhookTemplates() {
       templates.map(t =>
         `<option value="${t.name}">${t.name}${t.description ? ' — ' + t.description : ''}</option>`
       ).join('');
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function submitFiles() {
@@ -226,7 +226,7 @@ async function submitFiles() {
             resolve(data);
           } else {
             let detail = 'Upload failed';
-            try { detail = JSON.parse(xhr.responseText).detail; } catch {}
+            try { detail = JSON.parse(xhr.responseText).detail; } catch (e) { console.error(e); }
             results.push({ success: false, file: file.name, error: detail });
             resolve(null);
           }

@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import List, Optional
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -122,7 +123,6 @@ async def list_webhooks():
 async def add_webhook(webhook: WebhookConfig):
     config = load_runtime_config()
     webhooks = config.get("webhooks", [])
-    import uuid
     webhooks.append({
         "id": str(uuid.uuid4()),
         "url": webhook.url,

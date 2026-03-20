@@ -53,12 +53,14 @@ function formatMs(ms) {
 
 function formatDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString();
+  const normalized = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
+  return new Date(normalized).toLocaleString();
 }
 
 function relativeTime(iso) {
   if (!iso) return '—';
-  const diff = Date.now() - new Date(iso).getTime();
+  const normalized = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
+  const diff = Date.now() - new Date(normalized).getTime();
   const s = Math.floor(diff / 1000);
   if (s < 60) return s + 's ago';
   const m = Math.floor(s / 60);

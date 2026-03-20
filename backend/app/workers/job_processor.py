@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from app.config import settings, get_runtime_value
+from app.config import settings, get_runtime_value, load_runtime_config
 from app.database import AsyncSessionLocal
 from app.models.job import Job, JobStatus
 from app.utils.file_utils import get_output_path, get_original_path, safe_delete
@@ -68,7 +68,6 @@ async def _run_job(job_id: str) -> None:
     try:
         config = {}
         try:
-            from app.config import load_runtime_config
             config = load_runtime_config()
         except Exception:
             pass
@@ -133,8 +132,7 @@ async def _run_job(job_id: str) -> None:
                 template_headers = None
                 if job_webhook_template:
                     try:
-                        from app.config import load_runtime_config
-                        tmpl = load_runtime_config().get("webhook_templates", {}).get(job_webhook_template, {})
+                        tmpl = config.get("webhook_templates", {}).get(job_webhook_template, {})
                         if tmpl.get("body"):
                             raw_body = render_webhook_template(tmpl["body"], job)
                         if tmpl.get("headers"):

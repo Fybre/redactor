@@ -22,7 +22,7 @@ async function loadReport() {
   try {
     const report = await api.get(`/jobs/${jobId}/report`);
     document.getElementById('report-json').textContent = JSON.stringify(report, null, 2);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function renderJob(job) {
@@ -120,7 +120,7 @@ async function retryJob() {
     await api.post(`/jobs/${jobId}/retry`, {});
     showToast('Job requeued', 'success');
     loadJob();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function deleteJob() {
@@ -129,7 +129,7 @@ async function deleteJob() {
     await api.delete(`/jobs/${jobId}`);
     showToast('Deleted', 'success');
     setTimeout(() => location.href = 'index.html', 800);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 document.addEventListener('DOMContentLoaded', loadJob);

@@ -8,7 +8,7 @@ from typing import Optional, List
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings, get_runtime_value
+from app.config import settings, get_runtime_value, load_runtime_config
 from app.database import get_db
 from app.models.job import Job, JobStatus, RedactionLevel, OutputMode
 from app.utils.file_utils import compute_sha256, get_temp_path
@@ -72,6 +72,87 @@ async def _collect_prefixed_extra(request: Request) -> dict:
     return result
 
 
+async def _parse_request_params(
+    request: Request,
+    metadata, level, custom_entities, profile_name,
+    output_mode, webhook_url, webhook_headers, webhook_secret,
+    webhook_include_file, webhook_template, webhook_extra,
+) -> dict:
+    """Parse and resolve all upload parameters, merging metadata envelope + form fields."""
+    meta = {}
+    if metadata:
+        meta = _parse_json_field(metadata, "metadata", dict) or {}
+
+    def _get(field_value, key, default=None):
+        if field_value is not None:
+            return field_value
+        return meta.get(key, default)
+
+    level           = _get(level,           "level",           "standard")
+    custom_entities = _get(custom_entities, "custom_entities")
+    profile_name    = _get(profile_name,    "profile_name")
+    output_mode     = _get(output_mode,     "output_mode",     "directory")
+    webhook_url     = _get(webhook_url,     "webhook_url")
+    webhook_secret  = _get(webhook_secret,  "webhook_secret")
+    webhook_template= _get(webhook_template,"webhook_template")
+
+    _wif_raw = _get(webhook_include_file, "webhook_include_file", "false")
+    webhook_include_file_bool = str(_wif_raw).lower() in ("true", "1", "yes")
+
+    _wh_raw = _get(webhook_headers, "webhook_headers")
+    if isinstance(_wh_raw, dict):
+        parsed_webhook_headers = _wh_raw
+    else:
+        parsed_webhook_headers = _parse_json_field(_wh_raw, "webhook_headers", dict)
+
+    _we_raw = _get(webhook_extra, "webhook_extra")
+    if isinstance(_we_raw, dict):
+        parsed_webhook_extra = _we_raw
+    else:
+        parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
+
+    meta_headers = _extract_prefixed(meta, "webhook_header_")
+    meta_extra   = _extract_prefixed(meta, "webhook_extra_")
+    prefix_headers = {**meta_headers, **(await _collect_prefixed_headers(request))}
+    prefix_extra   = {**meta_extra,   **(await _collect_prefixed_extra(request))}
+    if prefix_headers:
+        parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
+    if prefix_extra:
+        parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
+
+    valid_levels = {e.value for e in RedactionLevel}
+    if level not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(valid_levels)}")
+
+    parsed_entities = None
+    if level == "custom" or custom_entities:
+        if isinstance(custom_entities, list):
+            parsed_entities = custom_entities
+        else:
+            parsed_entities = _parse_json_field(custom_entities, "custom_entities", list) or []
+
+    if profile_name:
+        config = load_runtime_config()
+        profiles = config.get("profiles", {})
+        if profile_name not in profiles:
+            raise HTTPException(status_code=400, detail=f"Profile '{profile_name}' not found")
+        parsed_entities = profiles[profile_name].get("entities", [])
+        level = "custom"
+
+    return {
+        "level": level,
+        "parsed_entities": parsed_entities,
+        "profile_name": profile_name,
+        "output_mode": output_mode,
+        "webhook_url": webhook_url,
+        "webhook_secret": webhook_secret,
+        "webhook_template": webhook_template,
+        "webhook_include_file_bool": webhook_include_file_bool,
+        "parsed_webhook_headers": parsed_webhook_headers,
+        "parsed_webhook_extra": parsed_webhook_extra,
+    }
+
+
 @router.post("/upload")
 async def upload_document(
     request: Request,
@@ -92,75 +173,21 @@ async def upload_document(
     webhook_extra: Optional[str] = Form(None),        # JSON object — extra vars merged into template context
     db: AsyncSession = Depends(get_db),
 ):
-    # ── Merge metadata envelope (Therefore Body tab sends everything as one JSON part)
-    meta = {}
-    if metadata:
-        meta = _parse_json_field(metadata, "metadata", dict) or {}
-
-    def _get(field_value, key, default=None):
-        """Return explicit form field if provided, else fall back to metadata envelope."""
-        if field_value is not None:
-            return field_value
-        return meta.get(key, default)
-
-    level           = _get(level,           "level",           "standard")
-    custom_entities = _get(custom_entities, "custom_entities")
-    profile_name    = _get(profile_name,    "profile_name")
-    output_mode     = _get(output_mode,     "output_mode",     "directory")
-    webhook_url     = _get(webhook_url,     "webhook_url")
-    webhook_secret  = _get(webhook_secret,  "webhook_secret")
-    webhook_template= _get(webhook_template,"webhook_template")
-
-    # webhook_include_file arrives as a string in both paths; normalise to bool
-    _wif_raw        = _get(webhook_include_file, "webhook_include_file", "false")
-    webhook_include_file_bool = str(_wif_raw).lower() in ("true", "1", "yes")
-
-    # webhook_headers — may already be a dict (from metadata envelope) or a JSON string
-    _wh_raw         = _get(webhook_headers, "webhook_headers")
-    if isinstance(_wh_raw, dict):
-        parsed_webhook_headers = _wh_raw
-    else:
-        parsed_webhook_headers = _parse_json_field(_wh_raw, "webhook_headers", dict)
-
-    # webhook_extra — same treatment
-    _we_raw         = _get(webhook_extra, "webhook_extra")
-    if isinstance(_we_raw, dict):
-        parsed_webhook_extra = _we_raw
-    else:
-        parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
-
-    # Merge prefixed keys from the metadata envelope, then from form fields (form wins)
-    meta_headers = _extract_prefixed(meta, "webhook_header_")
-    meta_extra   = _extract_prefixed(meta, "webhook_extra_")
-    prefix_headers = {**meta_headers, **(await _collect_prefixed_headers(request))}
-    prefix_extra   = {**meta_extra,   **(await _collect_prefixed_extra(request))}
-    if prefix_headers:
-        parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
-    if prefix_extra:
-        parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
-
-    # ── Validate level
-    valid_levels = {e.value for e in RedactionLevel}
-    if level not in valid_levels:
-        raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(valid_levels)}")
-
-    # ── Parse custom entities
-    parsed_entities = None
-    if level == "custom" or custom_entities:
-        if isinstance(custom_entities, list):
-            parsed_entities = custom_entities
-        else:
-            parsed_entities = _parse_json_field(custom_entities, "custom_entities", list) or []
-
-    # ── If a profile name is provided, load its entities
-    if profile_name:
-        from app.config import load_runtime_config
-        config = load_runtime_config()
-        profiles = config.get("profiles", {})
-        if profile_name not in profiles:
-            raise HTTPException(status_code=400, detail=f"Profile '{profile_name}' not found")
-        parsed_entities = profiles[profile_name].get("entities", [])
-        level = "custom"
+    params = await _parse_request_params(
+        request, metadata, level, custom_entities, profile_name,
+        output_mode, webhook_url, webhook_headers, webhook_secret,
+        webhook_include_file, webhook_template, webhook_extra,
+    )
+    level                  = params["level"]
+    parsed_entities        = params["parsed_entities"]
+    profile_name           = params["profile_name"]
+    output_mode            = params["output_mode"]
+    webhook_url            = params["webhook_url"]
+    webhook_secret         = params["webhook_secret"]
+    webhook_template       = params["webhook_template"]
+    webhook_include_file_bool = params["webhook_include_file_bool"]
+    parsed_webhook_headers = params["parsed_webhook_headers"]
+    parsed_webhook_extra   = params["parsed_webhook_extra"]
 
     # Read file content
     content = await file.read()
@@ -235,68 +262,21 @@ async def upload_document_sync(
     """
     from app.workers.job_processor import process_job_now
 
-    # ── Reuse the same parameter parsing as /upload ──────────────────────────
-    meta = {}
-    if metadata:
-        meta = _parse_json_field(metadata, "metadata", dict) or {}
-
-    def _get(field_value, key, default=None):
-        if field_value is not None:
-            return field_value
-        return meta.get(key, default)
-
-    level            = _get(level,            "level",            "standard")
-    custom_entities  = _get(custom_entities,  "custom_entities")
-    profile_name     = _get(profile_name,     "profile_name")
-    output_mode      = _get(output_mode,      "output_mode",      "directory")
-    webhook_url      = _get(webhook_url,      "webhook_url")
-    webhook_secret   = _get(webhook_secret,   "webhook_secret")
-    webhook_template = _get(webhook_template, "webhook_template")
-
-    _wif_raw = _get(webhook_include_file, "webhook_include_file", "false")
-    webhook_include_file_bool = str(_wif_raw).lower() in ("true", "1", "yes")
-
-    _wh_raw = _get(webhook_headers, "webhook_headers")
-    if isinstance(_wh_raw, dict):
-        parsed_webhook_headers = _wh_raw
-    else:
-        parsed_webhook_headers = _parse_json_field(_wh_raw, "webhook_headers", dict)
-
-    _we_raw = _get(webhook_extra, "webhook_extra")
-    if isinstance(_we_raw, dict):
-        parsed_webhook_extra = _we_raw
-    else:
-        parsed_webhook_extra = _parse_json_field(_we_raw, "webhook_extra", dict)
-
-    # Merge prefixed keys from the metadata envelope, then from form fields (form wins)
-    meta_headers = _extract_prefixed(meta, "webhook_header_")
-    meta_extra   = _extract_prefixed(meta, "webhook_extra_")
-    prefix_headers = {**meta_headers, **(await _collect_prefixed_headers(request))}
-    prefix_extra   = {**meta_extra,   **(await _collect_prefixed_extra(request))}
-    if prefix_headers:
-        parsed_webhook_headers = {**(parsed_webhook_headers or {}), **prefix_headers}
-    if prefix_extra:
-        parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
-
-    valid_levels = {e.value for e in RedactionLevel}
-    if level not in valid_levels:
-        raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(valid_levels)}")
-
-    parsed_entities = None
-    if level == "custom" or custom_entities:
-        if isinstance(custom_entities, list):
-            parsed_entities = custom_entities
-        else:
-            parsed_entities = _parse_json_field(custom_entities, "custom_entities", list) or []
-
-    if profile_name:
-        from app.config import load_runtime_config
-        config = load_runtime_config()
-        profiles = config.get("profiles", {})
-        if profile_name not in profiles:
-            raise HTTPException(status_code=400, detail=f"Profile '{profile_name}' not found")
-        parsed_entities = profiles[profile_name].get("entities", [])
-        level = "custom"
+    params = await _parse_request_params(
+        request, metadata, level, custom_entities, profile_name,
+        output_mode, webhook_url, webhook_headers, webhook_secret,
+        webhook_include_file, webhook_template, webhook_extra,
+    )
+    level                  = params["level"]
+    parsed_entities        = params["parsed_entities"]
+    profile_name           = params["profile_name"]
+    output_mode            = params["output_mode"]
+    webhook_url            = params["webhook_url"]
+    webhook_secret         = params["webhook_secret"]
+    webhook_template       = params["webhook_template"]
+    webhook_include_file_bool = params["webhook_include_file_bool"]
+    parsed_webhook_headers = params["parsed_webhook_headers"]
+    parsed_webhook_extra   = params["parsed_webhook_extra"]
 
     content = await file.read()
     if not content:

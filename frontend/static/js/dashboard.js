@@ -10,7 +10,7 @@ async function loadStats() {
     document.getElementById('stat-queued').textContent   = stats.jobs_queued + stats.jobs_processing;
     document.getElementById('stat-completed').textContent = stats.jobs_completed;
     document.getElementById('stat-entities').textContent = stats.total_entities_found.toLocaleString();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function loadJobs() {
@@ -21,7 +21,7 @@ async function loadJobs() {
     const data = await api.get(`/jobs?${params}`);
     renderTable(data.jobs);
     renderPagination(data.total, data.page, data.per_page);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function renderTable(jobs) {
@@ -100,7 +100,7 @@ async function clearHistory() {
     showToast(`Cleared ${res.count} job(s)`, 'success');
     loadJobs();
     loadStats();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function deleteJob(id) {
@@ -110,7 +110,7 @@ async function deleteJob(id) {
     showToast('Job deleted', 'success');
     loadJobs();
     loadStats();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function toggleAutoRefresh() {

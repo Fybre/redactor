@@ -21,7 +21,7 @@ async function loadConfig() {
     document.getElementById('cfg-llm-model').value = config.llm_model || 'llama3.2:3b';
     updateLLMFields();
     if ((config.detection_strategy || 'presidio') !== 'presidio') loadOllamaModels();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function updateLLMFields() {
@@ -168,7 +168,7 @@ async function saveConfig() {
   try {
     await api.put('/config', config);
     showToast('Settings saved', 'success');
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 // ── Tabs ─────────────────────────────────────────────────
@@ -184,7 +184,7 @@ async function loadProfiles() {
   try {
     const profiles = await api.get('/config/profiles');
     renderProfiles(profiles);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function renderProfiles(profiles) {
@@ -213,7 +213,7 @@ async function loadEntitiesForModal() {
   if (allEntities.length) return;
   try {
     allEntities = await api.get('/config/entities');
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function openProfileModal(name = null, existing = null) {
@@ -253,7 +253,7 @@ async function editProfile(name) {
   try {
     const profiles = await api.get('/config/profiles');
     openProfileModal(name, profiles[name]);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function openNewProfile() {
@@ -280,7 +280,7 @@ async function saveProfile() {
     }
     closeProfileModal();
     loadProfiles();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function deleteProfile(name) {
@@ -289,7 +289,7 @@ async function deleteProfile(name) {
     await api.delete(`/config/profiles/${name}`);
     showToast('Profile deleted', 'success');
     loadProfiles();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 // ── Webhooks ─────────────────────────────────────────────
@@ -298,7 +298,7 @@ async function loadWebhooks() {
   try {
     const webhooks = await api.get('/config/webhooks');
     renderWebhooks(webhooks);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function renderWebhooks(webhooks) {
@@ -334,14 +334,14 @@ async function addWebhook() {
     document.getElementById('wh-name').value = '';
     document.getElementById('wh-secret').value = '';
     loadWebhooks();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function testWebhook(id) {
   try {
     const res = await api.post(`/config/webhooks/${id}/test`, {});
     showToast(res.success ? 'Test webhook sent successfully' : 'Webhook test failed', res.success ? 'success' : 'error');
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function deleteWebhook(id) {
@@ -350,7 +350,7 @@ async function deleteWebhook(id) {
     await api.delete(`/config/webhooks/${id}`);
     showToast('Webhook deleted', 'success');
     loadWebhooks();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 // ── Templates ─────────────────────────────────────────────
@@ -439,7 +439,7 @@ async function loadTemplates() {
   try {
     const templates = await api.get('/config/templates');
     renderTemplates(templates);
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function renderTemplates(templates) {
@@ -487,7 +487,7 @@ async function editTemplate(name) {
     renderHeaderEditor(t.headers && Object.keys(t.headers).length ? t.headers : {});
     document.getElementById('tmpl-body').value = t.body || '';
     document.getElementById('template-modal').classList.add('open');
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 function closeTemplateModal() {
@@ -515,7 +515,7 @@ async function saveTemplate() {
     }
     closeTemplateModal();
     loadTemplates();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function duplicateTemplate(name) {
@@ -523,7 +523,7 @@ async function duplicateTemplate(name) {
     const res = await api.post(`/config/templates/${name}/duplicate`, {});
     showToast(`Duplicated as "${res.name}"`, 'success');
     loadTemplates();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 async function deleteTemplate(name) {
@@ -532,7 +532,7 @@ async function deleteTemplate(name) {
     await api.delete(`/config/templates/${name}`);
     showToast('Template deleted', 'success');
     loadTemplates();
-  } catch {}
+  } catch (e) { console.error(e); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

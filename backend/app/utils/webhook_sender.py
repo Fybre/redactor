@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -13,6 +14,10 @@ import httpx
 from jinja2 import Template, TemplateError
 
 logger = logging.getLogger(__name__)
+
+_BASE64_BLOB_RE = re.compile(
+    r'("(?:FileData|FileDataBase64JSON|file_data)"\s*:\s*)"[A-Za-z0-9+/=]{100,}"'
+)
 
 
 async def send_webhook(
@@ -47,9 +52,7 @@ async def send_webhook(
     try:
         log_body = body.decode("utf-8", errors="replace")
         # Replace large base64 blobs with a size marker
-        import re as _re
-        log_body = _re.sub(
-            r'("(?:FileData|FileDataBase64JSON|file_data)"\s*:\s*)"[A-Za-z0-9+/=]{100,}"',
+        log_body = _BASE64_BLOB_RE.sub(
             lambda m: m.group(0)[:m.start(1) - m.start(0) + len(m.group(1))] + f'"[base64 {len(m.group(0))} chars]"',
             log_body,
         )
