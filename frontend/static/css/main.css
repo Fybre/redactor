@@ -44,19 +44,11 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.sidebar-logo a {
-  text-decoration: none;
-  display: block;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-
-.sidebar-logo a:hover {
+.sidebar-logo:hover {
   background: var(--surface2);
 }
 
-.sidebar-logo a:hover h1 {
+.sidebar-logo:hover h1 {
   color: #818cf8;
 }
 
