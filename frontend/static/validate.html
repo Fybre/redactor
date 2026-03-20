@@ -135,6 +135,7 @@
 
     .region-item:hover { border-color: var(--accent); }
     .region-item.selected { border-color: var(--accent); background: #1e2540; }
+    .region-item.hovered { border-color: var(--accent); background: #1a2035; }
 
     .region-item.status-approved      { border-left: 3px solid #22c55e; }
     .region-item.status-auto_approved { border-left: 3px solid #14b8a6; }
@@ -185,6 +186,7 @@
     .overlay-rejected      { fill: rgba(239,68,68,0.1);   stroke: #ef4444; stroke-width: 1; stroke-dasharray: 4; }
     .overlay-user          { fill: rgba(59,130,246,0.2);  stroke: #3b82f6; stroke-width: 2; }
     .overlay-drawing       { fill: rgba(59,130,246,0.15); stroke: #3b82f6; stroke-width: 1; stroke-dasharray: 4; }
+    .overlay-focused       { stroke-width: 3 !important; filter: drop-shadow(0 0 4px rgba(255,255,255,0.4)); }
 
     .loading-overlay {
       position: fixed;
@@ -235,6 +237,11 @@
         <span>Regions</span>
         <span id="region-summary" style="font-weight:400;color:var(--muted);font-size:11px"></span>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0">
+        <button class="btn btn-ghost btn-sm" id="btn-prev-page" onclick="prevPage()" style="padding:2px 8px">&#8592; Prev</button>
+        <span id="page-nav-indicator">1 / 1</span>
+        <button class="btn btn-ghost btn-sm" id="btn-next-page" onclick="nextPage()" style="padding:2px 8px">Next &#8594;</button>
+      </div>
       <div class="region-list" id="region-list"></div>
       <div class="toolbar">
         <button class="btn btn-ghost btn-sm" onclick="approveAll()">Approve All</button>
@@ -250,6 +257,6 @@
   <div id="toast-container"></div>
 
   <script src="/js/api.js?v=3"></script>
-  <script src="/js/validate.js?v=1"></script>
+  <script src="/js/validate.js?v=2"></script>
 </body>
 </html>

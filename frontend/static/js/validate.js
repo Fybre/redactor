@@ -34,7 +34,7 @@ async function init() {
     allRegions = data.regions;
 
     buildPageStrip();
-    switchPage(0);
+    switchPage(0);        // also calls updatePageNav()
     document.getElementById('loading').style.display = 'none';
   } catch (e) {
     document.getElementById('loading').textContent = `Error: ${e.message}`;
@@ -98,6 +98,25 @@ function switchPage(page) {
   if (img.complete && img.naturalWidth) renderOverlay();
 
   renderRegionList();
+  updatePageNav();
+}
+
+function prevPage() {
+  if (currentPage > 0) switchPage(currentPage - 1);
+}
+
+function nextPage() {
+  if (currentPage < pageCount - 1) switchPage(currentPage + 1);
+}
+
+function updatePageNav() {
+  const indicator = document.getElementById('page-nav-indicator');
+  const btnPrev = document.getElementById('btn-prev-page');
+  const btnNext = document.getElementById('btn-next-page');
+  if (!indicator) return;
+  indicator.textContent = `${currentPage + 1} / ${pageCount}`;
+  if (btnPrev) btnPrev.disabled = currentPage === 0;
+  if (btnNext) btnNext.disabled = currentPage >= pageCount - 1;
 }
 
 // ── SVG overlay ───────────────────────────────────────────────────────────────
@@ -137,6 +156,14 @@ function makeRect(region) {
   rect.addEventListener('click', (e) => {
     e.stopPropagation();
     cycleStatus(region);
+  });
+
+  rect.addEventListener('mouseenter', () => {
+    highlightRegionListItem(region.id, true);
+  });
+
+  rect.addEventListener('mouseleave', () => {
+    highlightRegionListItem(region.id, false);
   });
 
   const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
@@ -289,9 +316,26 @@ function highlightRegion(regionId) {
   document.querySelectorAll('.region-item').forEach(el => {
     el.classList.toggle('selected', parseInt(el.dataset.rid) === regionId);
   });
-  // Scroll SVG rect into view
+  // Remove focus from any previously focused rect
+  document.querySelectorAll('.overlay-focused').forEach(el => el.classList.remove('overlay-focused'));
+  // Highlight and scroll the SVG rect into view
   const svgRect = document.querySelector(`[data-region-id="${regionId}"]`);
-  if (svgRect) svgRect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (svgRect) {
+    svgRect.classList.add('overlay-focused');
+    svgRect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+// Highlight/unhighlight a region list item from SVG hover events
+function highlightRegionListItem(regionId, on) {
+  const listItem = document.querySelector(`.region-item[data-rid="${regionId}"]`);
+  if (!listItem) return;
+  if (on) {
+    listItem.classList.add('hovered');
+    listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    listItem.classList.remove('hovered');
+  }
 }
 
 function updateSummary() {

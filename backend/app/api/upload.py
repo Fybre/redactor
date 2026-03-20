@@ -370,7 +370,10 @@ async def upload_document_sync(
         region_result = await db.execute(
             _select(RedactionRegion).where(RedactionRegion.job_id == job_id)
         )
-        region_count = len(region_result.scalars().all())
+        regions = region_result.scalars().all()
+        region_count = len(regions)
+        auto_approved_count = sum(1 for r in regions if r.status == "auto_approved")
+        pending_count = sum(1 for r in regions if r.status == "pending")
 
         return {
             "status": "pending_validation",
@@ -378,6 +381,8 @@ async def upload_document_sync(
             "validation_url": job.validation_url,
             "validation_path": f"/validate.html?id={job_id}",
             "region_count": region_count,
+            "auto_approved_count": auto_approved_count,
+            "pending_count": pending_count,
         }
 
     # ── Standard sync mode ─────────────────────────────────────────────────────
