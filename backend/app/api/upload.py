@@ -150,6 +150,7 @@ async def _parse_request_params(
         "webhook_include_file_bool": webhook_include_file_bool,
         "parsed_webhook_headers": parsed_webhook_headers,
         "parsed_webhook_extra": parsed_webhook_extra,
+        "_meta": meta,
     }
 
 
@@ -282,6 +283,18 @@ async def upload_document_sync(
     webhook_include_file_bool = params["webhook_include_file_bool"]
     parsed_webhook_headers = params["parsed_webhook_headers"]
     parsed_webhook_extra   = params["parsed_webhook_extra"]
+
+    # Resolve validation_mode and callback fields from metadata envelope if not
+    # provided as direct form fields (Therefore sends everything inside metadata).
+    _meta = params.get("_meta", {})
+    if not validation_mode:
+        validation_mode = _meta.get("validation_mode")
+    if not completion_callback_url:
+        completion_callback_url = _meta.get("completion_callback_url")
+    if not completion_callback_headers:
+        completion_callback_headers = _meta.get("completion_callback_headers")
+    if not completion_callback_body:
+        completion_callback_body = _meta.get("completion_callback_body")
 
     content = await file.read()
     if not content:
