@@ -164,7 +164,7 @@ async function submitFiles() {
   const webhookUrl = document.getElementById('webhook-url')?.value || '';
   const webhookTemplate = document.getElementById('webhook-template')?.value || '';
   const validationMode = document.getElementById('validation-mode')?.checked || false;
-  const autoApplyIfClean = document.getElementById('auto-apply-if-clean')?.checked || false;
+  const autoExportIfClean = document.getElementById('auto-export-if-clean')?.checked || false;
 
   // Profile level: send profile_name, backend sets level=custom
   let profileName = document.getElementById('profile-select')?.value || '';
@@ -210,7 +210,7 @@ async function submitFiles() {
     if (profileName) formData.append('profile_name', profileName);
     if (customEntities) formData.append('custom_entities', JSON.stringify(customEntities));
     if (validationMode) formData.append('validation_mode', 'true');
-    if (validationMode && autoApplyIfClean) formData.append('auto_apply_if_clean', 'true');
+    if (validationMode && autoExportIfClean) formData.append('auto_export_if_clean', 'true');
 
     // Validation mode uses upload-sync (blocks during detection); standard uses upload (queued)
     const endpoint = validationMode ? '/api/v1/jobs/upload-sync' : '/api/v1/jobs/upload';
