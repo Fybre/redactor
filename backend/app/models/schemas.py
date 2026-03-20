@@ -47,6 +47,7 @@ class SystemConfig(BaseModel):
     profiles: Dict[str, Any]
     default_profile: Optional[str]
     detection_strategy: Optional[str] = "presidio"
+    auto_approve_threshold: Optional[float] = 0.85
     llm_base_url: Optional[str] = "http://ollama:11434/v1"
     llm_model: Optional[str] = "llama3.2:3b"
     llm_api_key: Optional[str] = "ollama"
