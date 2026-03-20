@@ -46,6 +46,65 @@ def _pdf_has_text_layer(pdf_path: str, sample_pages: int = 3) -> bool:
         return False
 
 
+def detect_document(
+    input_path: str,
+    level: str,
+    custom_entities: Optional[list] = None,
+    ocr_language: str = "eng",
+    strategy: str = "presidio",
+    llm_base_url: Optional[str] = None,
+    llm_model: Optional[str] = None,
+    llm_api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Detect PII regions without applying redaction. Returns stats + regions list.
+    """
+    from app.core.pdf_redactor import redact_pdf
+    from app.core.image_redactor import detect_image_file
+
+    ext = Path(input_path).suffix.lower()
+    mime = _detect_mime(input_path)
+
+    logger.info(f"Detecting {os.path.basename(input_path)} | ext={ext} mime={mime} level={level} strategy={strategy}")
+
+    if ext == PDF_EXTENSION or mime == "application/pdf":
+        return redact_pdf(
+            input_path, None, level, custom_entities, (0, 0, 0), ocr_language,
+            strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+            detect_only=True,
+        )
+    elif ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
+        return detect_image_file(
+            input_path, level, custom_entities, ocr_language,
+            strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+        )
+    else:
+        raise ValueError(f"Unsupported file type: ext={ext}, mime={mime}")
+
+
+def apply_document_regions(
+    input_path: str,
+    output_path: str,
+    regions: list,
+    redaction_color: tuple = (0, 0, 0),
+) -> Dict[str, Any]:
+    """
+    Apply pre-detected normalised regions to a document without re-running detection.
+    """
+    from app.core.pdf_redactor import apply_regions_to_pdf
+    from app.core.image_redactor import apply_regions_to_image
+
+    ext = Path(input_path).suffix.lower()
+    mime = _detect_mime(input_path)
+
+    if ext == PDF_EXTENSION or mime == "application/pdf":
+        return apply_regions_to_pdf(input_path, output_path, regions, redaction_color)
+    elif ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
+        return apply_regions_to_image(input_path, output_path, regions, redaction_color)
+    else:
+        raise ValueError(f"Unsupported file type: ext={ext}, mime={mime}")
+
+
 def process_document(
     input_path: str,
     output_path: str,

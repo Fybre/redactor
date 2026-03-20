@@ -252,15 +252,20 @@ async def upload_document_sync(
     webhook_include_file: Optional[str] = Form(None),
     webhook_template: Optional[str] = Form(None),
     webhook_extra: Optional[str] = Form(None),
+    validation_mode: Optional[str] = Form(None),
+    completion_callback_url: Optional[str] = Form(None),
+    completion_callback_headers: Optional[str] = Form(None),
+    completion_callback_body: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Submit a document for redaction and block until processing and delivery are complete.
     Accepts the same parameters as /upload. Returns the completed job result.
-    Use this when the caller (e.g. a Therefore workflow REST Call task) needs to wait
-    for the result before continuing.
+
+    When validation_mode=true, runs detection only and returns immediately with a
+    validation_url for human review before redaction is applied.
     """
-    from app.workers.job_processor import process_job_now
+    from app.workers.job_processor import process_job_now, run_detection_job
 
     params = await _parse_request_params(
         request, metadata, level, custom_entities, profile_name,
@@ -293,6 +298,64 @@ async def upload_document_sync(
     file_hash = compute_sha256(temp_path)
     now = datetime.now(timezone.utc)
 
+    # ── Validation mode ────────────────────────────────────────────────────────
+    if validation_mode and str(validation_mode).lower() in ("true", "1", "yes"):
+        parsed_callback_headers = _parse_json_field(
+            completion_callback_headers, "completion_callback_headers", dict
+        )
+        base = settings.public_base_url.rstrip("/") if settings.public_base_url else str(request.base_url).rstrip("/")
+        validation_url = f"{base}/validate.html?id={job_id}"
+
+        job = Job(
+            id=job_id,
+            filename=file.filename,
+            file_hash=file_hash,
+            file_size_bytes=len(content),
+            mime_type=file.content_type,
+            source="api",
+            status=JobStatus.DETECTING,
+            started_at=now,
+            level=level,
+            custom_entities=parsed_entities,
+            profile_name=profile_name,
+            output_mode=output_mode,
+            webhook_url=webhook_url if output_mode == "webhook" else None,
+            webhook_headers=parsed_webhook_headers if output_mode == "webhook" else None,
+            webhook_secret=webhook_secret if output_mode == "webhook" else None,
+            webhook_include_file=webhook_include_file_bool if output_mode == "webhook" else False,
+            webhook_template=webhook_template if output_mode == "webhook" else None,
+            webhook_extra=parsed_webhook_extra if output_mode == "webhook" else None,
+            validation_url=validation_url,
+            completion_callback_url=completion_callback_url,
+            completion_callback_headers=parsed_callback_headers,
+            completion_callback_body=completion_callback_body,
+            input_path=temp_path,
+        )
+        db.add(job)
+        await db.commit()
+
+        await run_detection_job(job_id)
+
+        await db.refresh(job)
+        if job.status == JobStatus.FAILED:
+            raise HTTPException(status_code=500, detail=job.error_message or "Detection failed")
+
+        from sqlalchemy import select as _select
+        from app.models.region import RedactionRegion
+        region_result = await db.execute(
+            _select(RedactionRegion).where(RedactionRegion.job_id == job_id)
+        )
+        region_count = len(region_result.scalars().all())
+
+        return {
+            "status": "pending_validation",
+            "job_id": job_id,
+            "validation_url": job.validation_url,
+            "validation_path": f"/validate.html?id={job_id}",
+            "region_count": region_count,
+        }
+
+    # ── Standard sync mode ─────────────────────────────────────────────────────
     # Create the job already in PROCESSING state so the async worker ignores it
     job = Job(
         id=job_id,

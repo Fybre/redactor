@@ -9,6 +9,8 @@ import uuid
 class JobStatus(str, enum.Enum):
     PENDING = "pending"
     QUEUED = "queued"
+    DETECTING = "detecting"
+    PENDING_VALIDATION = "pending_validation"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -60,6 +62,11 @@ class Job(Base):
     input_path: Mapped[str] = mapped_column(String, nullable=True)
     output_path: Mapped[str] = mapped_column(String, nullable=True)
     original_path: Mapped[str] = mapped_column(String, nullable=True)
+
+    validation_url: Mapped[str] = mapped_column(String, nullable=True)
+    completion_callback_url: Mapped[str] = mapped_column(String, nullable=True)
+    completion_callback_headers: Mapped[dict] = mapped_column(JSON, nullable=True)
+    completion_callback_body: Mapped[str] = mapped_column(String, nullable=True)
 
     page_count: Mapped[int] = mapped_column(Integer, nullable=True)
     entities_found: Mapped[dict] = mapped_column(JSON, nullable=True)

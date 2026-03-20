@@ -482,7 +482,7 @@ async function editTemplate(name) {
     editingTemplate = name;
     document.getElementById('template-modal-title').textContent = 'Edit Template';
     document.getElementById('tmpl-name').value = name;
-    document.getElementById('tmpl-name').disabled = true;
+    document.getElementById('tmpl-name').disabled = false;
     document.getElementById('tmpl-desc').value = t.description || '';
     renderHeaderEditor(t.headers && Object.keys(t.headers).length ? t.headers : {});
     document.getElementById('tmpl-body').value = t.body || '';

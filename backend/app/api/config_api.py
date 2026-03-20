@@ -212,13 +212,23 @@ async def update_template(name: str, template: TemplateCreate):
     templates = config.setdefault("webhook_templates", {})
     if name not in templates:
         raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
-    templates[name] = {
+    new_name = template.name.strip()
+    if new_name != name and new_name in templates:
+        raise HTTPException(status_code=409, detail=f"Template '{new_name}' already exists")
+    updated = {
         "description": template.description,
         "body": template.body,
         "headers": _merge_headers(templates[name].get("headers", {}), template.headers),
     }
+    if new_name != name:
+        # Rebuild dict to preserve insertion order with the new key in place of the old
+        templates = {(new_name if k == name else k): (updated if k == name else v)
+                     for k, v in templates.items()}
+        config["webhook_templates"] = templates
+    else:
+        templates[name] = updated
     save_runtime_config(config)
-    return {"status": "updated", "name": name}
+    return {"status": "updated", "name": new_name}
 
 
 @router.post("/templates/{name}/duplicate")

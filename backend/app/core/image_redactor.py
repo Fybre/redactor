@@ -90,6 +90,93 @@ def redact_image_file(
     return {"page_count": 1, "entities_found": dict(entities_found)}
 
 
+def detect_image_file(
+    input_path: str,
+    level: str,
+    custom_entities: list = None,
+    ocr_language: str = "eng",
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
+) -> Dict[str, Any]:
+    """Detect PII regions in a standalone image file without applying redaction."""
+    img = Image.open(input_path).convert("RGB")
+    regions = _detect_pil_image(
+        img, 0, level, custom_entities, ocr_language,
+        strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+    )
+    entities_found: Dict[str, int] = {}
+    for r in regions:
+        entities_found[r["entity_type"]] = entities_found.get(r["entity_type"], 0) + 1
+    return {"page_count": 1, "entities_found": entities_found, "regions": regions}
+
+
+def apply_regions_to_image(
+    input_path: str,
+    output_path: str,
+    regions: List[dict],
+    redaction_color: tuple = (0, 0, 0),
+) -> Dict[str, Any]:
+    """Apply pre-detected normalised regions to an image file."""
+    img = Image.open(input_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    for region in regions:
+        x0 = int(region["x0"] * img.width)
+        y0 = int(region["y0"] * img.height)
+        x1 = int(region["x1"] * img.width)
+        y1 = int(region["y1"] * img.height)
+        draw.rectangle((x0, y0, x1, y1), fill=redaction_color)
+    img.save(output_path)
+    return {"page_count": 1, "entities_found": {}}
+
+
+def _detect_pil_image(
+    img: Image.Image,
+    page_num: int,
+    level: str,
+    custom_entities: Optional[list],
+    ocr_language: str,
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
+) -> List[dict]:
+    """Run OCR + Presidio on a PIL Image and return normalised region dicts (no drawing)."""
+    try:
+        ocr_data = pytesseract.image_to_data(img, lang=ocr_language, output_type=Output.DICT)
+    except Exception as e:
+        logger.error(f"OCR failed: {e}")
+        return []
+
+    full_text, char_map = _build_ocr_char_map(ocr_data)
+    if not full_text.strip():
+        return []
+
+    pii_results = analyze_text(
+        full_text, level, custom_entities,
+        strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+    )
+
+    regions = []
+    for result in pii_results:
+        bboxes = _rects_for_span(result.start, result.end, char_map)
+        if not bboxes:
+            continue
+        merged = _merge_bboxes(bboxes)
+        regions.append({
+            "page": page_num,
+            "x0": merged[0] / img.width,
+            "y0": merged[1] / img.height,
+            "x1": merged[2] / img.width,
+            "y1": merged[3] / img.height,
+            "entity_type": result.entity_type,
+            "original_text": full_text[result.start:result.end],
+            "score": getattr(result, "score", 1.0),
+        })
+    return regions
+
+
 def _redact_pil_image(
     img: Image.Image,
     level: str,
@@ -166,6 +253,31 @@ def redact_image_page(
     # Clear existing page content and insert redacted image
     page.clean_contents()
     page.insert_image(page.rect, stream=img_bytes.read())
+
+
+def detect_image_page(
+    page: fitz.Page,
+    page_num: int,
+    level: str,
+    custom_entities: Optional[list],
+    ocr_language: str,
+    strategy: str = "presidio",
+    llm_base_url: str = None,
+    llm_model: str = None,
+    llm_api_key: str = None,
+) -> List[dict]:
+    """
+    Detect PII regions on a scanned PDF page (no text layer) without applying redaction.
+    Coordinates are normalised by the rendered image dimensions so they map correctly
+    back to PDF point-space when denormalised by page.rect.width / page.rect.height.
+    """
+    mat = fitz.Matrix(300 / 72, 300 / 72)
+    pix = page.get_pixmap(matrix=mat, alpha=False)
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    return _detect_pil_image(
+        img, page_num, level, custom_entities, ocr_language,
+        strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+    )
 
 
 def redact_scanned_pdf(

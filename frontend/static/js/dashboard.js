@@ -6,10 +6,11 @@ let refreshInterval = null;
 async function loadStats() {
   try {
     const stats = await api.get('/stats');
-    document.getElementById('stat-today').textContent    = stats.jobs_today;
-    document.getElementById('stat-queued').textContent   = stats.jobs_queued + stats.jobs_processing;
-    document.getElementById('stat-completed').textContent = stats.jobs_completed;
-    document.getElementById('stat-entities').textContent = stats.total_entities_found.toLocaleString();
+    document.getElementById('stat-today').textContent              = stats.jobs_today;
+    document.getElementById('stat-queued').textContent             = stats.jobs_queued + stats.jobs_processing;
+    document.getElementById('stat-pending-validation').textContent = stats.jobs_pending_validation;
+    document.getElementById('stat-completed').textContent          = stats.jobs_completed;
+    document.getElementById('stat-entities').textContent           = stats.total_entities_found.toLocaleString();
   } catch (e) { console.error(e); }
 }
 
@@ -52,6 +53,7 @@ function renderTable(jobs) {
       <td>
         <div style="display:flex;gap:6px;align-items:center">
           <a href="job_detail.html?id=${j.id}" class="btn btn-ghost btn-sm">View</a>
+          ${j.status === 'pending_validation' ? `<a href="validate.html?id=${j.id}" class="btn btn-primary btn-sm">Review</a>` : ''}
           ${j.status === 'completed' ? `<a href="/api/v1/jobs/${j.id}/view" target="_blank" class="btn btn-ghost btn-sm" title="View in browser">👁</a>` : ''}
           ${j.status === 'completed' ? `<a href="/api/v1/jobs/${j.id}/download" class="btn btn-ghost btn-sm" title="Download">⬇</a>` : ''}
           <button onclick="deleteJob('${j.id}')" class="btn btn-danger btn-sm">✕</button>

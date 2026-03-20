@@ -41,6 +41,9 @@ async def get_stats():
         processing = (await session.execute(
             select(func.count()).select_from(Job).where(Job.status == JobStatus.PROCESSING)
         )).scalar()
+        pending_validation = (await session.execute(
+            select(func.count()).select_from(Job).where(Job.status == JobStatus.PENDING_VALIDATION)
+        )).scalar()
 
         # Sum total entities and pages from completed jobs
         rows = (await session.execute(
@@ -68,6 +71,7 @@ async def get_stats():
         jobs_failed=failed,
         jobs_queued=queued,
         jobs_processing=processing,
+        jobs_pending_validation=pending_validation,
         total_entities_found=total_entities,
         total_pages_processed=total_pages,
         avg_processing_ms=avg_ms,

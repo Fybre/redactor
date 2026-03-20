@@ -163,6 +163,7 @@ async function submitFiles() {
   const outputMode = document.querySelector('input[name=output_mode]:checked')?.value || 'directory';
   const webhookUrl = document.getElementById('webhook-url')?.value || '';
   const webhookTemplate = document.getElementById('webhook-template')?.value || '';
+  const validationMode = document.getElementById('validation-mode')?.checked || false;
 
   // Profile level: send profile_name, backend sets level=custom
   let profileName = document.getElementById('profile-select')?.value || '';
@@ -190,6 +191,7 @@ async function submitFiles() {
   const resultEl = document.getElementById('upload-result');
 
   submitBtn.disabled = true;
+  submitBtn.textContent = validationMode ? 'Detecting regions…' : 'Submitting…';
   if (resultEl) resultEl.innerHTML = '';
 
   const results = [];
@@ -206,11 +208,15 @@ async function submitFiles() {
     if (webhookTemplate) formData.append('webhook_template', webhookTemplate);
     if (profileName) formData.append('profile_name', profileName);
     if (customEntities) formData.append('custom_entities', JSON.stringify(customEntities));
+    if (validationMode) formData.append('validation_mode', 'true');
+
+    // Validation mode uses upload-sync (blocks during detection); standard uses upload (queued)
+    const endpoint = validationMode ? '/api/v1/jobs/upload-sync' : '/api/v1/jobs/upload';
 
     try {
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/v1/jobs/upload');
+        xhr.open('POST', endpoint);
 
         xhr.upload.onprogress = e => {
           if (e.lengthComputable && progressBar) {
@@ -222,16 +228,21 @@ async function submitFiles() {
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             const data = JSON.parse(xhr.responseText);
-            results.push({ success: true, file: file.name, jobId: data.job_id });
-            resolve(data);
+            results.push({
+              success: true,
+              file: file.name,
+              jobId: data.job_id,
+              validationUrl: data.job_id ? `/validate.html?id=${data.job_id}` : null,
+              regionCount: data.region_count,
+            });
           } else {
             let detail = 'Upload failed';
-            try { detail = JSON.parse(xhr.responseText).detail; } catch (e) { console.error(e); }
+            try { detail = JSON.parse(xhr.responseText).detail; } catch (_) {}
             results.push({ success: false, file: file.name, error: detail });
-            resolve(null);
           }
+          resolve();
         };
-        xhr.onerror = () => { results.push({ success: false, file: file.name, error: 'Network error' }); resolve(null); };
+        xhr.onerror = () => { results.push({ success: false, file: file.name, error: 'Network error' }); resolve(); };
         xhr.send(formData);
       });
     } catch (e) {
@@ -246,19 +257,26 @@ async function submitFiles() {
 
   if (resultEl) {
     resultEl.className = `upload-result ${failed.length ? 'error' : 'success'}`;
+    const queuedLabel = validationMode ? 'ready for review' : 'queued successfully';
     resultEl.innerHTML = `
-      <strong>${succeeded.length} of ${results.length} file(s) queued successfully.</strong>
+      <strong>${succeeded.length} of ${results.length} file(s) ${queuedLabel}.</strong>
       ${succeeded.map(r => `<div style="margin-top:8px">
-        ✓ ${r.file} — <a href="job_detail.html?id=${r.jobId}" style="color:var(--accent)">View job →</a>
+        ✓ ${r.file}
+        ${r.validationUrl
+          ? ` — <strong>${r.regionCount} region(s) detected</strong> —
+              <a href="${r.validationUrl}" style="color:var(--accent)">Review &amp; approve →</a>`
+          : ` — <a href="job_detail.html?id=${r.jobId}" style="color:var(--accent)">View job →</a>`
+        }
       </div>`).join('')}
       ${failed.map(r => `<div style="margin-top:8px;color:var(--danger)">✗ ${r.file}: ${r.error}</div>`).join('')}
-      ${succeeded.length ? '<div style="margin-top:12px"><a href="index.html" class="btn btn-primary">View all jobs →</a></div>' : ''}
+      ${succeeded.length && !validationMode ? '<div style="margin-top:12px"><a href="index.html" class="btn btn-primary">View all jobs →</a></div>' : ''}
     `;
   }
 
   selectedFiles = [];
   renderFileList();
   submitBtn.disabled = false;
+  submitBtn.textContent = 'Submit for Redaction';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

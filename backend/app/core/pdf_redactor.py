@@ -75,15 +75,18 @@ def redact_pdf(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    detect_only: bool = False,
 ) -> Dict[str, Any]:
     """
     Redact a text-layer PDF. Returns stats dict with page_count and entities_found.
+    When detect_only=True, returns regions list instead of writing a file.
     """
-    from app.core.image_redactor import redact_image_page
+    from app.core.image_redactor import redact_image_page, detect_image_page
 
     doc = fitz.open(input_path)
     total_entities: Dict[str, int] = defaultdict(int)
     page_count = doc.page_count
+    all_regions: List[Dict[str, Any]] = []
 
     color_normalized = tuple(c / 255.0 for c in redaction_color)
 
@@ -93,12 +96,21 @@ def redact_pdf(
         full_text = _reconstruct_text(text_blocks)
 
         if len(full_text.strip()) < 10:
-            # Scanned page — use OCR-based redaction inline
-            logger.debug(f"Page {page_num}: no text layer, using OCR redaction")
-            redact_image_page(
-                page, level, custom_entities, redaction_color, ocr_language, total_entities,
-                strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
-            )
+            # Scanned page — use OCR-based path
+            logger.debug(f"Page {page_num}: no text layer, using OCR {'detection' if detect_only else 'redaction'}")
+            if detect_only:
+                page_regions = detect_image_page(
+                    page, page_num, level, custom_entities, ocr_language,
+                    strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+                )
+                all_regions.extend(page_regions)
+                for r in page_regions:
+                    total_entities[r["entity_type"]] = total_entities.get(r["entity_type"], 0) + 1
+            else:
+                redact_image_page(
+                    page, level, custom_entities, redaction_color, ocr_language, total_entities,
+                    strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+                )
             continue
 
         char_map = _build_char_to_word_map(text_blocks)
@@ -114,11 +126,32 @@ def redact_pdf(
                 continue
             merged = _merge_rects(rects)
 
-            # Step 1: Add redact annotation — PyMuPDF will remove text from content stream
-            page.add_redact_annot(merged, fill=color_normalized)
+            if detect_only:
+                all_regions.append({
+                    "page": page_num,
+                    "x0": merged.x0 / page.rect.width,
+                    "y0": merged.y0 / page.rect.height,
+                    "x1": merged.x1 / page.rect.width,
+                    "y1": merged.y1 / page.rect.height,
+                    "entity_type": result.entity_type,
+                    "original_text": full_text[result.start:result.end],
+                    "score": getattr(result, "score", 1.0),
+                })
+            else:
+                # Add redact annotation — PyMuPDF will remove text from content stream
+                page.add_redact_annot(merged, fill=color_normalized)
 
-        # Apply redactions: removes text from the PDF content stream
-        page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+        if not detect_only:
+            # Apply redactions: removes text from the PDF content stream
+            page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+
+    if detect_only:
+        doc.close()
+        return {
+            "page_count": page_count,
+            "entities_found": dict(total_entities),
+            "regions": all_regions,
+        }
 
     # Save with garbage=4 to remove all unreferenced objects
     doc.save(output_path, garbage=4, deflate=True)
@@ -128,3 +161,38 @@ def redact_pdf(
         "page_count": page_count,
         "entities_found": dict(total_entities),
     }
+
+
+def apply_regions_to_pdf(
+    input_path: str,
+    output_path: str,
+    regions: List[Dict[str, Any]],
+    redaction_color: tuple = (0, 0, 0),
+) -> Dict[str, Any]:
+    """
+    Apply pre-detected normalised regions to a PDF without re-running detection.
+    Coordinates are normalised [0, 1] relative to page dimensions.
+    """
+    doc = fitz.open(input_path)
+    color_normalized = tuple(c / 255.0 for c in redaction_color)
+    page_count = doc.page_count
+
+    for region in regions:
+        page_num = region.get("page", 0)
+        if page_num >= page_count:
+            continue
+        page = doc[page_num]
+        x0 = region["x0"] * page.rect.width
+        y0 = region["y0"] * page.rect.height
+        x1 = region["x1"] * page.rect.width
+        y1 = region["y1"] * page.rect.height
+        rect = fitz.Rect(x0, y0, x1, y1)
+        page.add_redact_annot(rect, fill=color_normalized)
+
+    for page_num in range(page_count):
+        doc[page_num].apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+
+    doc.save(output_path, garbage=4, deflate=True)
+    doc.close()
+
+    return {"page_count": page_count, "entities_found": {}}

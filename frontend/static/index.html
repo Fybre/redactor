@@ -44,6 +44,10 @@
           <div class="stat-label">In Queue</div>
           <div class="stat-value warning" id="stat-queued">—</div>
         </div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFilter('pending_validation')">
+          <div class="stat-label">Awaiting Review</div>
+          <div class="stat-value" style="color:#f97316" id="stat-pending-validation">—</div>
+        </div>
         <div class="stat-card">
           <div class="stat-label">Completed</div>
           <div class="stat-value success" id="stat-completed">—</div>
@@ -61,6 +65,7 @@
             <button class="filter-tab active" data-status="" onclick="setFilter('')">All</button>
             <button class="filter-tab" data-status="queued" onclick="setFilter('queued')">Queued</button>
             <button class="filter-tab" data-status="processing" onclick="setFilter('processing')">Processing</button>
+            <button class="filter-tab" data-status="pending_validation" onclick="setFilter('pending_validation')">Awaiting Review</button>
             <button class="filter-tab" data-status="completed" onclick="setFilter('completed')">Completed</button>
             <button class="filter-tab" data-status="failed" onclick="setFilter('failed')">Failed</button>
           </div>

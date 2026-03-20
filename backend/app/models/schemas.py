@@ -72,6 +72,7 @@ class StatsResponse(BaseModel):
     jobs_failed: int
     jobs_queued: int
     jobs_processing: int
+    jobs_pending_validation: int = 0
     total_entities_found: int
     total_pages_processed: int
     avg_processing_ms: Optional[float]

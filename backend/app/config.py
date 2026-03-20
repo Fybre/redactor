@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     retain_originals: bool = True
     retention_days: int = 30
 
+    # Public base URL returned in API responses (e.g. validation_url sent to Therefore).
+    # Set this to the externally reachable address, e.g. http://redactor.internal:8080
+    # Defaults to empty string; upload.py falls back to request.base_url when not set.
+    public_base_url: str = ""
+
     # Logging
     log_level: str = "INFO"
 
@@ -56,6 +61,7 @@ _DEFAULT_RUNTIME_CONFIG = {
     "redaction_color": [0, 0, 0],
     "ocr_language": "eng",
     "detection_strategy": "presidio",
+    "auto_approve_threshold": 0.85,
     "llm_base_url": "http://ollama:11434/v1",
     "llm_model": "llama3.2:3b",
     "llm_api_key": "ollama",
