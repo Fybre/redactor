@@ -184,9 +184,14 @@ def load_runtime_config() -> dict:
             # override individual entries.  This means new default templates/profiles
             # added in later releases automatically appear on existing deployments
             # while any user-customised entries are preserved.
+            # A saved entry of None is a deletion marker — that key is excluded even
+            # if it exists in the defaults (allows deleting built-in templates/profiles).
             for key, default_val in _DEFAULT_RUNTIME_CONFIG.items():
                 if isinstance(default_val, dict):
-                    config[key] = {**default_val, **(saved.get(key) or {})}
+                    saved_dict = saved.get(key) or {}
+                    merged = {k: v for k, v in default_val.items() if saved_dict.get(k) is not None}
+                    merged.update({k: v for k, v in saved_dict.items() if v is not None})
+                    config[key] = merged
             return config
         except Exception:
             pass

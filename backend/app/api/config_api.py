@@ -253,12 +253,22 @@ async def duplicate_template(name: str):
 
 @router.delete("/templates/{name}")
 async def delete_template(name: str):
+    import json as _json
+    from app.config import _RUNTIME_CONFIG_PATH
+    # Check the merged view to validate the name exists
     config = load_runtime_config()
-    templates = config.get("webhook_templates", {})
-    if name not in templates:
+    if name not in config.get("webhook_templates", {}):
         raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
-    del templates[name]
-    save_runtime_config(config)
+    # Write a None marker into the raw saved config so the merge logic
+    # knows this template was explicitly deleted (even if it's a built-in default).
+    saved = {}
+    if _RUNTIME_CONFIG_PATH.exists():
+        try:
+            saved = _json.loads(_RUNTIME_CONFIG_PATH.read_text())
+        except Exception:
+            pass
+    saved.setdefault("webhook_templates", {})[name] = None
+    save_runtime_config(saved)
     return {"status": "deleted"}
 
 
