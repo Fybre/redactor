@@ -183,6 +183,13 @@
                 <div class="option-desc">Detect regions first — you approve, reject, or draw before redaction is applied</div>
               </div>
             </label>
+            <label class="radio-option" id="auto-apply-option" style="cursor:pointer;margin-top:8px">
+              <input type="checkbox" id="auto-apply-if-clean" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--accent)">
+              <div>
+                <div class="option-label">Skip review if all regions are auto-approved</div>
+                <div class="option-desc">If every detected region meets the confidence threshold, apply redaction immediately without opening the review screen</div>
+              </div>
+            </label>
           </div>
 
           <button id="submit-btn" onclick="submitFiles()" class="btn btn-primary" style="width:100%" disabled>

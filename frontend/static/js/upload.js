@@ -164,6 +164,7 @@ async function submitFiles() {
   const webhookUrl = document.getElementById('webhook-url')?.value || '';
   const webhookTemplate = document.getElementById('webhook-template')?.value || '';
   const validationMode = document.getElementById('validation-mode')?.checked || false;
+  const autoApplyIfClean = document.getElementById('auto-apply-if-clean')?.checked || false;
 
   // Profile level: send profile_name, backend sets level=custom
   let profileName = document.getElementById('profile-select')?.value || '';
@@ -209,6 +210,7 @@ async function submitFiles() {
     if (profileName) formData.append('profile_name', profileName);
     if (customEntities) formData.append('custom_entities', JSON.stringify(customEntities));
     if (validationMode) formData.append('validation_mode', 'true');
+    if (validationMode && autoApplyIfClean) formData.append('auto_apply_if_clean', 'true');
 
     // Validation mode uses upload-sync (blocks during detection); standard uses upload (queued)
     const endpoint = validationMode ? '/api/v1/jobs/upload-sync' : '/api/v1/jobs/upload';
@@ -232,8 +234,9 @@ async function submitFiles() {
               success: true,
               file: file.name,
               jobId: data.job_id,
-              validationUrl: data.job_id ? `/validate.html?id=${data.job_id}` : null,
+              validationUrl: (data.status === 'pending_validation' && data.job_id) ? `/validate.html?id=${data.job_id}` : null,
               regionCount: data.region_count,
+              bypassed: data.bypassed_validation || false,
             });
           } else {
             let detail = 'Upload failed';
@@ -262,10 +265,13 @@ async function submitFiles() {
       <strong>${succeeded.length} of ${results.length} file(s) ${queuedLabel}.</strong>
       ${succeeded.map(r => `<div style="margin-top:8px">
         ✓ ${r.file}
-        ${r.validationUrl
-          ? ` — <strong>${r.regionCount} region(s) detected</strong> —
-              <a href="${r.validationUrl}" style="color:var(--accent)">Review &amp; approve →</a>`
-          : ` — <a href="job_detail.html?id=${r.jobId}" style="color:var(--accent)">View job →</a>`
+        ${r.bypassed
+          ? ` — all ${r.regionCount} region(s) auto-approved, redaction applied —
+              <a href="job_detail.html?id=${r.jobId}" style="color:var(--accent)">View job →</a>`
+          : r.validationUrl
+            ? ` — <strong>${r.regionCount} region(s) detected</strong> —
+                <a href="${r.validationUrl}" style="color:var(--accent)">Review &amp; approve →</a>`
+            : ` — <a href="job_detail.html?id=${r.jobId}" style="color:var(--accent)">View job →</a>`
         }
       </div>`).join('')}
       ${failed.map(r => `<div style="margin-top:8px;color:var(--danger)">✗ ${r.file}: ${r.error}</div>`).join('')}

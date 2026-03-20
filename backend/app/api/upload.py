@@ -266,6 +266,7 @@ async def upload_document_sync(
     webhook_template: Optional[str] = Form(None),
     webhook_extra: Optional[str] = Form(None),
     validation_mode: Optional[str] = Form(None),
+    auto_apply_if_clean: Optional[str] = Form(None),
     completion_callback_url: Optional[str] = Form(None),
     completion_callback_headers: Optional[str] = Form(None),
     completion_callback_body: Optional[str] = Form(None),
@@ -301,6 +302,8 @@ async def upload_document_sync(
     _meta = params.get("_meta", {})
     if not validation_mode:
         validation_mode = _meta.get("validation_mode")
+    if not auto_apply_if_clean:
+        auto_apply_if_clean = _meta.get("auto_apply_if_clean")
     if not completion_callback_url:
         completion_callback_url = _meta.get("completion_callback_url")
     if not completion_callback_headers:
@@ -375,6 +378,21 @@ async def upload_document_sync(
         auto_approved_count = sum(1 for r in regions if r.status == "auto_approved")
         pending_count = sum(1 for r in regions if r.status == "pending")
 
+        # If all regions are auto-approved and the caller requested bypass, apply immediately
+        bypass = auto_apply_if_clean and str(auto_apply_if_clean).lower() in ("true", "1", "yes")
+        if bypass and pending_count == 0:
+            from app.workers.job_processor import run_validation_job
+            await run_validation_job(job_id)
+            await db.refresh(job)
+            return {
+                "status": "completed",
+                "job_id": job_id,
+                "region_count": region_count,
+                "auto_approved_count": auto_approved_count,
+                "pending_count": 0,
+                "bypassed_validation": True,
+            }
+
         return {
             "status": "pending_validation",
             "job_id": job_id,
@@ -383,6 +401,7 @@ async def upload_document_sync(
             "region_count": region_count,
             "auto_approved_count": auto_approved_count,
             "pending_count": pending_count,
+            "bypassed_validation": False,
         }
 
     # ── Standard sync mode ─────────────────────────────────────────────────────
