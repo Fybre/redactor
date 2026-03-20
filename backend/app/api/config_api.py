@@ -272,6 +272,23 @@ async def delete_template(name: str):
     return {"status": "deleted"}
 
 
+@router.post("/templates/_restore_defaults")
+async def restore_default_templates():
+    """Remove all saved webhook_templates overrides (including deletion markers) so
+    the built-in defaults show through again on next load."""
+    import json as _json
+    from app.config import _RUNTIME_CONFIG_PATH
+    saved = {}
+    if _RUNTIME_CONFIG_PATH.exists():
+        try:
+            saved = _json.loads(_RUNTIME_CONFIG_PATH.read_text())
+        except Exception:
+            pass
+    saved.pop("webhook_templates", None)
+    save_runtime_config(saved)
+    return {"status": "restored"}
+
+
 def _ollama_base(config: dict) -> str:
     """Derive the Ollama base URL (without /v1) from the configured llm_base_url."""
     url = config.get("llm_base_url", "http://ollama:11434/v1").rstrip("/")

@@ -530,6 +530,15 @@ async function duplicateTemplate(name) {
   } catch (e) { console.error(e); }
 }
 
+async function restoreDefaultTemplates() {
+  if (!confirm('Restore all built-in default templates? Your custom templates will not be affected.')) return;
+  try {
+    await api.post('/config/templates/_restore_defaults', {});
+    showToast('Default templates restored', 'success');
+    loadTemplates();
+  } catch (e) { console.error(e); }
+}
+
 async function deleteTemplate(name) {
   if (!confirm(`Delete template "${name}"?`)) return;
   try {
