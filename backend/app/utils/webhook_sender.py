@@ -15,6 +15,10 @@ from jinja2 import Template, TemplateError
 
 logger = logging.getLogger(__name__)
 
+_WEBHOOK_TIMEOUT_DEFAULT = 15.0    # seconds — normal JSON payloads
+_WEBHOOK_TIMEOUT_LARGE   = 60.0    # seconds — large payloads or file attachments
+_WEBHOOK_LARGE_BODY_BYTES = 100_000 # threshold above which the longer timeout is used
+
 _BASE64_BLOB_RE = re.compile(
     r'("(?:FileData|FileDataBase64JSON|file_data)"\s*:\s*)"[A-Za-z0-9+/=]{100,}"'
 )
@@ -47,7 +51,7 @@ async def send_webhook(
     if extra_headers:
         headers.update(extra_headers)
 
-    timeout = 60.0 if (raw_body and len(raw_body) > 100_000) or payload.get("file_data") else 15.0
+    timeout = _WEBHOOK_TIMEOUT_LARGE if (raw_body and len(raw_body) > _WEBHOOK_LARGE_BODY_BYTES) or payload.get("file_data") else _WEBHOOK_TIMEOUT_DEFAULT
     # Log the full body being sent, redacting any base64 file data to keep logs readable
     try:
         log_body = body.decode("utf-8", errors="replace")

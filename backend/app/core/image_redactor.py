@@ -22,6 +22,10 @@ from app.core.presidio_engine import analyze_text
 
 logger = logging.getLogger(__name__)
 
+_OCR_CONFIDENCE_THRESHOLD = 30   # discard words below this pytesseract confidence (0–100)
+_BBOX_PADDING_PX = 2             # pixels added around each redaction box for clean coverage
+_OCR_DPI = 300                   # DPI used when rendering PDF pages for OCR
+
 
 def _build_ocr_char_map(ocr_data: dict) -> Tuple[str, List[Tuple[int, int, tuple]]]:
     """
@@ -36,7 +40,7 @@ def _build_ocr_char_map(ocr_data: dict) -> Tuple[str, List[Tuple[int, int, tuple
         if not word.strip():
             continue
         conf = int(ocr_data["conf"][i])
-        if conf < 30:
+        if conf < _OCR_CONFIDENCE_THRESHOLD:
             continue
 
         left = ocr_data["left"][i]
@@ -62,7 +66,7 @@ def _merge_bboxes(bboxes: List[tuple]) -> tuple:
     top = min(b[1] for b in bboxes)
     right = max(b[2] for b in bboxes)
     bottom = max(b[3] for b in bboxes)
-    return (left - 2, top - 2, right + 2, bottom + 2)
+    return (left - _BBOX_PADDING_PX, top - _BBOX_PADDING_PX, right + _BBOX_PADDING_PX, bottom + _BBOX_PADDING_PX)
 
 
 def redact_image_file(
@@ -236,7 +240,7 @@ def redact_image_page(
     the page contents with the redacted image.
     """
     # Render page at 300 DPI for good OCR accuracy
-    mat = fitz.Matrix(300 / 72, 300 / 72)
+    mat = fitz.Matrix(_OCR_DPI / 72, _OCR_DPI / 72)
     pix = page.get_pixmap(matrix=mat, alpha=False)
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
@@ -271,7 +275,7 @@ def detect_image_page(
     Coordinates are normalised by the rendered image dimensions so they map correctly
     back to PDF point-space when denormalised by page.rect.width / page.rect.height.
     """
-    mat = fitz.Matrix(300 / 72, 300 / 72)
+    mat = fitz.Matrix(_OCR_DPI / 72, _OCR_DPI / 72)
     pix = page.get_pixmap(matrix=mat, alpha=False)
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     return _detect_pil_image(

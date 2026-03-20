@@ -27,6 +27,8 @@ from app.models.region import RedactionRegion
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+_PREVIEW_DPI = 150   # DPI for rendering PDF pages as preview images in the validation UI
+
 
 # ── Preview ──────────────────────────────────────────────────────────────────
 
@@ -46,7 +48,7 @@ async def get_preview(job_id: str, page_num: int, db: AsyncSession = Depends(get
         if page_num >= doc.page_count:
             doc.close()
             raise HTTPException(status_code=404, detail="Page not found")
-        mat = fitz.Matrix(150 / 72, 150 / 72)  # 150 DPI
+        mat = fitz.Matrix(_PREVIEW_DPI / 72, _PREVIEW_DPI / 72)
         pix = doc[page_num].get_pixmap(matrix=mat, alpha=False)
         png_bytes = pix.tobytes("png")
         doc.close()

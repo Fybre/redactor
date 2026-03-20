@@ -8,7 +8,8 @@ from typing import List
 
 logger = logging.getLogger(__name__)
 
-_CHUNK_SIZE = 3000
+_CHUNK_SIZE = 3000         # max characters per text chunk sent to the LLM
+_LLM_REQUEST_TIMEOUT = 60  # seconds — per-chunk LLM API call timeout
 
 
 class _LLMSpan:
@@ -157,7 +158,7 @@ def analyze_text_llm(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
-                timeout=60,
+                timeout=_LLM_REQUEST_TIMEOUT,
             )
             raw = response.choices[0].message.content or "[]"
         except Exception as e:

@@ -14,6 +14,9 @@ from app.models.schemas import SystemConfig, ProfileCreate, WebhookConfig
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+_OLLAMA_LIST_TIMEOUT  = 5.0    # seconds — quick availability check
+_OLLAMA_PULL_TIMEOUT  = 600.0  # seconds — model pulls can be large
+
 
 @router.get("", response_model=SystemConfig)
 async def get_config():
@@ -277,7 +280,7 @@ async def list_ollama_models():
     config = load_runtime_config()
     base = _ollama_base(config)
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=_OLLAMA_LIST_TIMEOUT) as client:
             resp = await client.get(f"{base}/api/tags")
             if resp.status_code == 200:
                 data = resp.json()
@@ -296,7 +299,7 @@ async def pull_ollama_model(body: OllamaPullRequest):
 
     async def stream():
         try:
-            async with httpx.AsyncClient(timeout=600.0) as client:
+            async with httpx.AsyncClient(timeout=_OLLAMA_PULL_TIMEOUT) as client:
                 async with client.stream(
                     "POST", f"{base}/api/pull", json={"name": body.model}
                 ) as resp:

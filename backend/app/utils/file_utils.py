@@ -5,11 +5,13 @@ import uuid
 from pathlib import Path
 from app.config import settings
 
+_SHA256_CHUNK_SIZE = 65536  # 64 KB read buffer for streaming SHA-256
+
 
 def compute_sha256(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
+        for chunk in iter(lambda: f.read(_SHA256_CHUNK_SIZE), b""):
             h.update(chunk)
     return h.hexdigest()
 
