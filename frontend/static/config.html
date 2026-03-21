@@ -327,6 +327,11 @@
         </div>
       </div>
       <div class="form-group">
+        <label>Pre-fetch URL <span style="font-weight:400;color:var(--muted)">(optional — GET this URL before rendering; response available as <code>{{ fetched }}</code>)</span></label>
+        <input type="text" id="tmpl-pre-fetch-url" placeholder="e.g. https://host/restun/GetDocument?DocNo={{ doc_no }}">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Uses the same auth headers as the webhook. Useful for fetching the current Therefore <code>LastChangeTimeISO8601</code> before calling UpdateDocument.</div>
+      </div>
+      <div class="form-group">
         <label>Template Body (Jinja2) *</label>
         <textarea id="tmpl-body" rows="20" style="font-family:monospace;font-size:12px;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical" placeholder='{ "event": "{{ status }}", "file": "{{ filename }}", ... }'></textarea>
       </div>

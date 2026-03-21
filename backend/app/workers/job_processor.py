@@ -134,7 +134,12 @@ async def _run_job(job_id: str) -> None:
                     try:
                         tmpl = config.get("webhook_templates", {}).get(job_webhook_template, {})
                         if tmpl.get("body"):
-                            raw_body = render_webhook_template(tmpl["body"], job)
+                            effective_headers = {**(job_webhook_headers or {}), **(tmpl.get("headers") or {})}
+                            raw_body = await render_webhook_template(
+                                tmpl["body"], job,
+                                pre_fetch_url=tmpl.get("pre_fetch_url"),
+                                pre_fetch_headers=effective_headers,
+                            )
                         if tmpl.get("headers"):
                             template_headers = {**(job_webhook_headers or {}), **tmpl["headers"]}
                     except Exception as te:
@@ -358,7 +363,12 @@ async def run_validation_job(job_id: str) -> None:
                     try:
                         tmpl = config.get("webhook_templates", {}).get(job_webhook_template, {})
                         if tmpl.get("body"):
-                            raw_body = render_webhook_template(tmpl["body"], job)
+                            effective_headers = {**(job_webhook_headers or {}), **(tmpl.get("headers") or {})}
+                            raw_body = await render_webhook_template(
+                                tmpl["body"], job,
+                                pre_fetch_url=tmpl.get("pre_fetch_url"),
+                                pre_fetch_headers=effective_headers,
+                            )
                         if tmpl.get("headers"):
                             template_headers = {**(job_webhook_headers or {}), **tmpl["headers"]}
                     except Exception as te:

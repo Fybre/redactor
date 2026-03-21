@@ -474,6 +474,7 @@ function openNewTemplate() {
   document.getElementById('tmpl-name').disabled = false;
   document.getElementById('tmpl-desc').value = '';
   document.getElementById('tmpl-headers-editor').innerHTML = '';
+  document.getElementById('tmpl-pre-fetch-url').value = '';
   document.getElementById('tmpl-body').value = '';
   document.getElementById('template-modal').classList.add('open');
 }
@@ -489,6 +490,7 @@ async function editTemplate(name) {
     document.getElementById('tmpl-name').disabled = false;
     document.getElementById('tmpl-desc').value = t.description || '';
     renderHeaderEditor(t.headers && Object.keys(t.headers).length ? t.headers : {});
+    document.getElementById('tmpl-pre-fetch-url').value = t.pre_fetch_url || '';
     document.getElementById('tmpl-body').value = t.body || '';
     document.getElementById('template-modal').classList.add('open');
   } catch (e) { console.error(e); }
@@ -507,8 +509,9 @@ async function saveTemplate() {
   if (!body) { showToast('Template body is required', 'error'); return; }
 
   const headers = readHeadersFromEditor();
+  const pre_fetch_url = document.getElementById('tmpl-pre-fetch-url').value.trim();
 
-  const payload = { name, description: desc, body, headers };
+  const payload = { name, description: desc, body, headers, pre_fetch_url };
   try {
     if (editingTemplate) {
       await api.put(`/config/templates/${editingTemplate}`, payload);

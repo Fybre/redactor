@@ -149,12 +149,39 @@ def build_template_context(job) -> dict:
     return context
 
 
-def render_webhook_template(template_str: str, job) -> bytes:
+async def fetch_pre_fetch_context(url: str, headers: Optional[dict] = None) -> dict:
+    """GET a URL (e.g. Therefore GetDocument) and return the parsed JSON as a dict.
+    Result is made available as `fetched` in the template context."""
+    try:
+        async with httpx.AsyncClient(timeout=_WEBHOOK_TIMEOUT_DEFAULT) as client:
+            resp = await client.get(url, headers=headers or {})
+            if resp.status_code < 400:
+                return resp.json()
+            logger.warning(f"pre_fetch_url {url} returned HTTP {resp.status_code}")
+    except Exception as e:
+        logger.warning(f"pre_fetch_url {url} failed: {e}")
+    return {}
+
+
+async def render_webhook_template(
+    template_str: str,
+    job,
+    pre_fetch_url: Optional[str] = None,
+    pre_fetch_headers: Optional[dict] = None,
+) -> bytes:
     """
     Render a Jinja2 webhook template with job context.
+    If pre_fetch_url is set, GETs that URL first and injects the response JSON
+    as `fetched` into the template context (e.g. for fresh Therefore LastChangeTime).
     Returns the rendered bytes ready to POST.
     Raises TemplateError on render failure.
     """
     context = build_template_context(job)
+    if pre_fetch_url:
+        # Render the pre_fetch_url itself as a template so it can include {{ doc_no }} etc.
+        rendered_url = Template(pre_fetch_url).render(**context)
+        context["fetched"] = await fetch_pre_fetch_context(rendered_url, pre_fetch_headers)
+    else:
+        context["fetched"] = {}
     rendered = Template(template_str).render(**context)
     return rendered.encode()
