@@ -18,13 +18,27 @@ let drawing = false;
 let drawStart = null;   // {x, y} in normalised coords
 let drawRect = null;    // the in-progress SVG rect element
 
+// ── Loading overlay ───────────────────────────────────────────────────────────
+
+function showLoading(msg) {
+  const el = document.getElementById('loading');
+  const msgEl = document.getElementById('loading-msg');
+  if (msgEl) msgEl.textContent = msg || 'Loading…';
+  el.style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 async function init() {
   if (!JOB_ID) {
-    document.getElementById('loading').textContent = 'No job ID provided.';
+    document.getElementById('loading-msg').textContent = 'No job ID provided.';
     return;
   }
+  showLoading('Loading document…');
   try {
     job = await api.get(`/jobs/${JOB_ID}`);
     if (!job) throw new Error('Job not found');
@@ -35,9 +49,9 @@ async function init() {
 
     buildPageStrip();
     switchPage(0);        // also calls updatePageNav()
-    document.getElementById('loading').style.display = 'none';
+    hideLoading();
   } catch (e) {
-    document.getElementById('loading').textContent = `Error: ${e.message}`;
+    document.getElementById('loading-msg').textContent = `Error: ${e.message}`;
   }
 }
 
@@ -388,12 +402,13 @@ async function saveAndApply() {
 
     await api.put(`/jobs/${JOB_ID}/regions`, { regions: [...updates, ...inserts] });
 
-    btn.textContent = 'Applying…';
+    showLoading('Applying redaction and sending to destination…');
     await api.post(`/jobs/${JOB_ID}/apply`, {});
 
     showToast('Redaction applied successfully', 'success');
     setTimeout(() => { location.href = `index.html?status=pending_validation`; }, 1000);
   } catch (e) {
+    hideLoading();
     btn.disabled = false;
     btn.textContent = 'Save & Apply';
     showToast(`Failed: ${e.message}`, 'error');

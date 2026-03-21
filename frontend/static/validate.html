@@ -212,6 +212,23 @@
       color: var(--text);
     }
 
+    .loading-overlay .loading-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
     .badge-approved      { background: #166534; color: #4ade80; }
     .badge-auto_approved { background: #134e4a; color: #5eead4; }
     .badge-rejected      { background: #7f1d1d; color: #fca5a5; }
@@ -265,7 +282,12 @@
     </div>
   </div>
 
-  <div class="loading-overlay" id="loading">Loading…</div>
+  <div class="loading-overlay" id="loading">
+    <div class="loading-inner">
+      <div class="spinner"></div>
+      <span id="loading-msg">Loading…</span>
+    </div>
+  </div>
   <div id="toast-container"></div>
 
   <script src="/js/api.js?v=3"></script>
