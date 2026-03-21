@@ -182,6 +182,20 @@ _DEFAULT_RUNTIME_CONFIG = {
                 '}'
             ),
         },
+        "therefore_save_index_quick": {
+            "description": "Therefore SaveDocumentIndexDataQuick — update index fields only, no LastChangeTime required",
+            "headers": {},
+            "body": (
+                '{\n'
+                '  "DocNo": {{ doc_no }},\n'
+                '  "CheckInComments": "Redacted by Redactor — {{ filename }}",\n'
+                '  "IndexData": {\n'
+                '    "IndexDataItems": [\n'
+                '    ]\n'
+                '  }\n'
+                '}'
+            ),
+        },
     },
 }
 
