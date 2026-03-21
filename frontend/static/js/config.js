@@ -326,6 +326,88 @@ function renderWebhooks(webhooks) {
       </tr>`).join('') + `</tbody></table>`;
 }
 
+// ── Watched Folders ───────────────────────────────────────────────────────────
+
+async function loadWatchedFolders() {
+  try {
+    const [folders, profiles] = await Promise.all([
+      api.get('/config/watched-folders'),
+      api.get('/config/profiles'),
+    ]);
+    renderWatchedFolders(folders);
+    populateFolderProfileDropdowns(Object.keys(profiles));
+  } catch (e) { console.error(e); }
+}
+
+function populateFolderProfileDropdowns(profileNames) {
+  const sel = document.getElementById('wf-profile');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Default —</option>' +
+    profileNames.map(p => `<option value="${p}"${p === current ? ' selected' : ''}>${p}</option>`).join('');
+}
+
+function renderWatchedFolders(folders) {
+  const el = document.getElementById('watched-folders-list');
+  if (!folders.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📁</div><h3>No watched folders</h3><p>Add a folder to start auto-polling.</p></div>`;
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Name</th><th>Input Path</th><th>Output Path</th><th>Profile</th><th>Status</th><th>Actions</th></tr></thead><tbody>` +
+    folders.map(f => `
+      <tr>
+        <td><strong>${f.name}</strong></td>
+        <td style="font-family:monospace;font-size:12px">${f.path}</td>
+        <td style="font-family:monospace;font-size:12px;color:var(--muted)">${f.output_path || '— default —'}</td>
+        <td>${f.profile ? `<span class="badge badge-api">${f.profile}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+        <td><span class="badge ${f.enabled ? 'badge-completed' : 'badge-cancelled'}">${f.enabled ? 'enabled' : 'disabled'}</span></td>
+        <td>
+          <div style="display:flex;gap:6px">
+            ${f.id !== 'default' ? `<button onclick="toggleWatchedFolder('${f.id}',${!f.enabled})" class="btn btn-ghost btn-sm">${f.enabled ? 'Disable' : 'Enable'}</button>` : ''}
+            ${f.id !== 'default' ? `<button onclick="deleteWatchedFolder('${f.id}')" class="btn btn-danger btn-sm">Delete</button>` : ''}
+            ${f.id === 'default' ? '<span style="font-size:11px;color:var(--muted)">default</span>' : ''}
+          </div>
+        </td>
+      </tr>`).join('') + `</tbody></table>`;
+}
+
+async function addWatchedFolder() {
+  const name = document.getElementById('wf-name').value.trim();
+  const path = document.getElementById('wf-path').value.trim();
+  const outputPath = document.getElementById('wf-output-path').value.trim();
+  const profile = document.getElementById('wf-profile').value;
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!path) { showToast('Input path is required', 'error'); return; }
+  try {
+    await api.post('/config/watched-folders', { name, path, output_path: outputPath, profile: profile || null, enabled: true });
+    showToast('Folder added', 'success');
+    document.getElementById('wf-name').value = '';
+    document.getElementById('wf-path').value = '';
+    document.getElementById('wf-output-path').value = '';
+    document.getElementById('wf-profile').value = '';
+    loadWatchedFolders();
+  } catch (e) { console.error(e); }
+}
+
+async function toggleWatchedFolder(id, enabled) {
+  try {
+    const folders = await api.get('/config/watched-folders');
+    const f = folders.find(f => f.id === id);
+    if (!f) return;
+    await api.put(`/config/watched-folders/${id}`, { ...f, enabled });
+    loadWatchedFolders();
+  } catch (e) { console.error(e); }
+}
+
+async function deleteWatchedFolder(id) {
+  if (!confirm('Delete this watched folder?')) return;
+  try {
+    await api.delete(`/config/watched-folders/${id}`);
+    showToast('Folder removed', 'success');
+    loadWatchedFolders();
+  } catch (e) { console.error(e); }
+}
+
 async function addWebhook() {
   const url = document.getElementById('wh-url').value.trim();
   const name = document.getElementById('wh-name').value.trim();
@@ -567,6 +649,7 @@ async function deleteTemplate(name) {
 document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   loadProfiles();
+  loadWatchedFolders();
   loadWebhooks();
   loadTemplates();
   switchTab('system');

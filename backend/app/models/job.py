@@ -62,6 +62,7 @@ class Job(Base):
     input_path: Mapped[str] = mapped_column(String, nullable=True)
     output_path: Mapped[str] = mapped_column(String, nullable=True)
     original_path: Mapped[str] = mapped_column(String, nullable=True)
+    custom_output_dir: Mapped[str] = mapped_column(String, nullable=True)  # per-folder output override
 
     validation_url: Mapped[str] = mapped_column(String, nullable=True)
     completion_callback_url: Mapped[str] = mapped_column(String, nullable=True)

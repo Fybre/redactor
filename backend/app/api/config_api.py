@@ -114,6 +114,68 @@ async def delete_profile(name: str):
     return {"status": "deleted"}
 
 
+# --- Watched Folders ---
+
+class WatchedFolderConfig(BaseModel):
+    name: str
+    path: str
+    profile: Optional[str] = None
+    output_path: Optional[str] = ""
+    enabled: bool = True
+
+
+@router.get("/watched-folders")
+async def list_watched_folders():
+    config = load_runtime_config()
+    return config.get("watched_folders", [])
+
+
+@router.post("/watched-folders")
+async def add_watched_folder(folder: WatchedFolderConfig):
+    config = load_runtime_config()
+    folders = config.get("watched_folders", [])
+    folders.append({
+        "id": str(uuid.uuid4()),
+        "name": folder.name,
+        "path": folder.path,
+        "profile": folder.profile or None,
+        "output_path": folder.output_path or "",
+        "enabled": folder.enabled,
+    })
+    config["watched_folders"] = folders
+    save_runtime_config(config)
+    return {"status": "added"}
+
+
+@router.put("/watched-folders/{folder_id}")
+async def update_watched_folder(folder_id: str, folder: WatchedFolderConfig):
+    config = load_runtime_config()
+    folders = config.get("watched_folders", [])
+    idx = next((i for i, f in enumerate(folders) if f.get("id") == folder_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Watched folder not found")
+    folders[idx] = {
+        "id": folder_id,
+        "name": folder.name,
+        "path": folder.path,
+        "profile": folder.profile or None,
+        "output_path": folder.output_path or "",
+        "enabled": folder.enabled,
+    }
+    config["watched_folders"] = folders
+    save_runtime_config(config)
+    return {"status": "updated"}
+
+
+@router.delete("/watched-folders/{folder_id}")
+async def delete_watched_folder(folder_id: str):
+    config = load_runtime_config()
+    folders = config.get("watched_folders", [])
+    config["watched_folders"] = [f for f in folders if f.get("id") != folder_id]
+    save_runtime_config(config)
+    return {"status": "deleted"}
+
+
 # --- Webhooks ---
 
 @router.get("/webhooks")

@@ -22,11 +22,12 @@ def get_temp_path(filename: str) -> str:
     return str(Path(settings.temp_dir) / f"{uuid.uuid4()}{suffix}")
 
 
-def get_output_path(job_id: str, filename: str) -> str:
-    Path(settings.output_dir).mkdir(parents=True, exist_ok=True)
+def get_output_path(job_id: str, filename: str, output_dir: str = None) -> str:
+    out = Path(output_dir) if output_dir else Path(settings.output_dir)
+    out.mkdir(parents=True, exist_ok=True)
     stem = Path(filename).stem
     suffix = Path(filename).suffix
-    return str(Path(settings.output_dir) / f"{stem}_redacted_{job_id[:8]}{suffix}")
+    return str(out / f"{stem}_redacted_{job_id[:8]}{suffix}")
 
 
 def get_original_path(job_id: str, filename: str) -> str:

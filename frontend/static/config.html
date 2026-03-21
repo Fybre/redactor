@@ -32,6 +32,7 @@
     <div class="content">
       <div class="tabs">
         <div class="tab active" data-tab="system" onclick="switchTab('system')">System Settings</div>
+        <div class="tab" data-tab="folders" onclick="switchTab('folders')">Watched Folders</div>
         <div class="tab" data-tab="profiles" onclick="switchTab('profiles')">Redaction Profiles</div>
         <div class="tab" data-tab="webhooks" onclick="switchTab('webhooks')">Webhooks</div>
         <div class="tab" data-tab="templates" onclick="switchTab('templates')">Webhook Templates</div>
@@ -229,6 +230,47 @@
       </div>
 
       <!-- Webhooks Tab -->
+      <!-- Watched Folders Tab -->
+      <div class="tab-content" id="tab-folders">
+        <div style="margin-bottom:16px">
+          <strong>Watched Folders</strong>
+          <p style="color:var(--muted);font-size:13px;margin-top:4px">
+            Each folder is polled at the configured interval. Files dropped in are auto-submitted as jobs.
+            Paths should be accessible inside the container (e.g. <code>/data/input/hr</code>).
+            The default input path is <code>/data/input</code>.
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Add Watched Folder</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin:0">
+              <label>Name *</label>
+              <input type="text" id="wf-name" placeholder="e.g. HR Documents">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Input Path *</label>
+              <input type="text" id="wf-path" placeholder="/data/input/hr">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Output Path <span style="font-weight:400;color:var(--muted)">(blank = default)</span></label>
+              <input type="text" id="wf-output-path" placeholder="/data/output/hr">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label>Redaction Profile <span style="font-weight:400;color:var(--muted)">(blank = default level)</span></label>
+              <select id="wf-profile"><option value="">— Default —</option></select>
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <button onclick="addWatchedFolder()" class="btn btn-primary">Add Folder</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div id="watched-folders-list">Loading…</div>
+        </div>
+      </div>
+
       <div class="tab-content" id="tab-webhooks">
         <div style="margin-bottom:16px">
           <strong>Webhook Endpoints</strong>

@@ -80,7 +80,7 @@ async def _run_job(job_id: str) -> None:
         llm_model = config.get("llm_model", "llama3.2:3b")
         llm_api_key = config.get("llm_api_key", "ollama")
 
-        output_path = get_output_path(job_id, job_filename)
+        output_path = get_output_path(job_id, job_filename, job.custom_output_dir or None)
 
         # Save original if configured
         original_path = None
@@ -323,7 +323,7 @@ async def run_validation_job(job_id: str) -> None:
         redaction_color = tuple(config.get("redaction_color", [0, 0, 0]))
         retain = config.get("retain_originals", settings.retain_originals)
 
-        output_path = get_output_path(job_id, job_filename)
+        output_path = get_output_path(job_id, job_filename, job.custom_output_dir or None)
 
         original_path = None
         if retain and job_input_path and os.path.exists(job_input_path):

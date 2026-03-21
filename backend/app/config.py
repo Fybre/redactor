@@ -70,6 +70,16 @@ _DEFAULT_RUNTIME_CONFIG = {
     "llm_model": "llama3.2:3b",
     "llm_api_key": "ollama",
     "allowed_extensions": ["pdf", "png", "jpg", "jpeg", "tiff", "tif"],
+    "watched_folders": [
+        {
+            "id": "default",
+            "name": "Default Input",
+            "path": settings.input_dir,
+            "profile": None,
+            "output_path": "",
+            "enabled": True,
+        }
+    ],
     "webhooks": [],
     "profiles": {},
     "default_profile": None,
