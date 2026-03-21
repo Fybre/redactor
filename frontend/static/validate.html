@@ -186,7 +186,19 @@
     .overlay-rejected      { fill: rgba(239,68,68,0.1);   stroke: #ef4444; stroke-width: 1; stroke-dasharray: 4; }
     .overlay-user          { fill: rgba(59,130,246,0.2);  stroke: #3b82f6; stroke-width: 2; }
     .overlay-drawing       { fill: rgba(59,130,246,0.15); stroke: #3b82f6; stroke-width: 1; stroke-dasharray: 4; }
-    .overlay-focused       { stroke-width: 3 !important; stroke: #fff !important; filter: drop-shadow(0 0 6px rgba(255,255,255,0.9)) drop-shadow(0 0 12px rgba(255,255,255,0.5)); opacity: 1 !important; }
+    @keyframes focus-pulse {
+      0%, 100% { stroke-opacity: 1; }
+      50%       { stroke-opacity: 0.4; }
+    }
+    .overlay-focused {
+      fill: rgba(250,204,21,0.35) !important;
+      stroke: #facc15 !important;
+      stroke-width: 3 !important;
+      stroke-dasharray: none !important;
+      filter: drop-shadow(0 0 5px #facc15) !important;
+      animation: focus-pulse 1s ease-in-out infinite;
+      opacity: 1 !important;
+    }
 
     .loading-overlay {
       position: fixed;
