@@ -66,6 +66,7 @@ class RecognizerCreate(BaseModel):
     name: str
     entity_type: str
     type: str                            # "pattern" or "deny_list"
+    description: Optional[str] = ""     # used in LLM prompt when strategy includes LLM
     patterns: Optional[List[PatternConfig]] = None
     deny_list: Optional[List[str]] = None
     context: Optional[List[str]] = None
@@ -87,6 +88,7 @@ async def add_recognizer(rec: RecognizerCreate):
         "name": rec.name,
         "entity_type": rec.entity_type,
         "type": rec.type,
+        "description": rec.description or "",
         "patterns": [p.model_dump() for p in (rec.patterns or [])],
         "deny_list": rec.deny_list or [],
         "context": rec.context or [],

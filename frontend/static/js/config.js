@@ -414,7 +414,8 @@ async function addRecognizer() {
   const type = document.getElementById('rec-type').value;
   if (!name || !entity_type) { showToast('Name and entity type are required', 'error'); return; }
 
-  let payload = { name, entity_type, type };
+  const description = document.getElementById('rec-description').value.trim();
+  let payload = { name, entity_type, type, ...(description ? { description } : {}) };
   if (type === 'pattern') {
     const regex = document.getElementById('rec-regex').value.trim();
     if (!regex) { showToast('Regex pattern is required', 'error'); return; }
@@ -439,6 +440,7 @@ async function addRecognizer() {
     document.getElementById('rec-regex').value = '';
     document.getElementById('rec-deny-list').value = '';
     document.getElementById('rec-context').value = '';
+    document.getElementById('rec-description').value = '';
     loadEntities();
   } catch (e) { console.error(e); }
 }

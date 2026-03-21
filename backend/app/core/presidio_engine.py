@@ -75,6 +75,14 @@ def analyze_text(
     if strategy == "presidio":
         return presidio_results
 
+    # Build entity descriptions — merge built-ins with any custom recognizer descriptions
+    from app.config import load_runtime_config
+    custom_recs = load_runtime_config().get("custom_recognizers", [])
+    entity_descriptions = dict(ENTITY_DESCRIPTIONS)
+    for rec in custom_recs:
+        if rec.get("description") and rec.get("entity_type"):
+            entity_descriptions.setdefault(rec["entity_type"], rec["description"])
+
     # LLM path
     from app.core.llm_engine import analyze_text_llm
     llm_results = analyze_text_llm(
@@ -83,7 +91,7 @@ def analyze_text(
         base_url=llm_base_url or "http://ollama:11434/v1",
         model=llm_model or "llama3.2:3b",
         api_key=llm_api_key or "ollama",
-        entity_descriptions=ENTITY_DESCRIPTIONS,
+        entity_descriptions=entity_descriptions,
     )
 
     if strategy == "llm":

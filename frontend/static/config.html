@@ -242,6 +242,31 @@
           </div>
         </div>
 
+        <!-- How it works info card -->
+        <div class="card" style="margin-bottom:16px;font-size:12px;line-height:1.7;color:var(--muted)">
+          <div class="card-title" style="margin-bottom:8px">How detection works</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+            <div>
+              <div style="color:var(--text);font-weight:600;margin-bottom:4px">Presidio (rule-based)</div>
+              Uses regex patterns, checksums, and context words. Fast and precise for structured data like credit cards, SSNs, emails.
+              Extended by <strong>Pattern</strong> and <strong>Deny List</strong> recognizers you define here.
+            </div>
+            <div>
+              <div style="color:var(--text);font-weight:600;margin-bottom:4px">LLM (semantic)</div>
+              Sends text to your configured LLM with a list of entity types and their descriptions. Understands context — good for unstructured PII the rules miss, but slower.
+              Custom entities with a <strong>description</strong> are automatically included in the LLM prompt.
+            </div>
+            <div>
+              <div style="color:var(--text);font-weight:600;margin-bottom:4px">Both (recommended)</div>
+              Runs Presidio first, then LLM. LLM results that substantially overlap a Presidio match are dropped to avoid duplicates.
+              Use this when you want high recall without sacrificing Presidio's precision on structured identifiers.
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            <strong style="color:var(--text)">Custom entities</strong> — define a <strong>Pattern</strong> recognizer if the value has a predictable format (regex). Use a <strong>Deny List</strong> for a fixed set of known values. Add a <strong>description</strong> so the LLM also knows what to look for contextually. Once added, the entity type appears in Redaction Profiles so you can enable it per-level.
+          </div>
+        </div>
+
         <!-- Custom recognizer form -->
         <div class="card" style="margin-bottom:16px">
           <div class="card-title">Add Custom Recognizer</div>
@@ -287,6 +312,10 @@
               <label>Context Words <span style="font-weight:400;color:var(--muted)">(comma-separated, optional)</span></label>
               <input type="text" id="rec-deny-context" placeholder="e.g. name, patient, employee">
             </div>
+          </div>
+          <div class="form-group" style="margin:0 0 10px">
+            <label>Description <span style="font-weight:400;color:var(--muted)">(used by LLM to detect this entity contextually)</span></label>
+            <input type="text" id="rec-description" placeholder="e.g. An internal employee identifier in the format EMP-NNNNN">
           </div>
           <button onclick="addRecognizer()" class="btn btn-primary">Add Recognizer</button>
         </div>
