@@ -392,7 +392,7 @@ async function saveAndApply() {
     await api.post(`/jobs/${JOB_ID}/apply`, {});
 
     showToast('Redaction applied successfully', 'success');
-    setTimeout(() => { location.href = `job_detail.html?id=${JOB_ID}`; }, 1000);
+    setTimeout(() => { location.href = `index.html?status=pending_validation`; }, 1000);
   } catch (e) {
     btn.disabled = false;
     btn.textContent = 'Save & Apply';

@@ -134,7 +134,9 @@ function stopAutoRefresh() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const initialStatus = new URLSearchParams(location.search).get('status') || '';
+  if (initialStatus) setFilter(initialStatus);
   loadStats();
-  loadJobs();
+  if (!initialStatus) loadJobs();
   startAutoRefresh();
 });
