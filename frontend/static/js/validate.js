@@ -361,7 +361,7 @@ function updateSummary() {
 // ── Bulk actions ──────────────────────────────────────────────────────────────
 
 function approveAll() {
-  allRegions.forEach(r => { r.status = 'approved'; });
+  allRegions.forEach(r => { if (r.status === 'pending') r.status = 'approved'; });
   renderOverlay();
   renderRegionList();
   updateThumbCounts();
