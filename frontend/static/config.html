@@ -186,10 +186,13 @@
       <div class="tab-content" id="tab-profiles">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
           <div>
-            <strong>Custom Redaction Profiles</strong>
-            <p style="color:var(--muted);font-size:13px;margin-top:4px">Save named sets of entity types for reuse</p>
+            <strong>Redaction Profiles</strong>
+            <p style="color:var(--muted);font-size:13px;margin-top:4px">Built-in level profiles and custom entity sets. Duplicate a built-in to create an editable copy.</p>
           </div>
-          <button onclick="openNewProfile()" class="btn btn-primary">+ New Profile</button>
+          <div style="display:flex;gap:8px">
+            <button onclick="restoreDefaultProfiles()" class="btn btn-ghost">Restore defaults</button>
+            <button onclick="openNewProfile()" class="btn btn-primary">+ New Profile</button>
+          </div>
         </div>
         <div class="card">
           <div id="profiles-list">Loading…</div>

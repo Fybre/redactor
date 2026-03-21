@@ -4,6 +4,7 @@ from typing import Optional
 import json
 import os
 from pathlib import Path
+from app.core.redaction_levels import ENTITY_LEVELS, LEVEL_DESCRIPTIONS
 
 
 class Settings(BaseSettings):
@@ -81,7 +82,14 @@ _DEFAULT_RUNTIME_CONFIG = {
         }
     ],
     "webhooks": [],
-    "profiles": {},
+    "profiles": {
+        level: {
+            "entities": list(entities),
+            "description": LEVEL_DESCRIPTIONS.get(level, ""),
+            "builtin": True,
+        }
+        for level, entities in ENTITY_LEVELS.items()
+    },
     "default_profile": None,
     "webhook_templates": {
         "therefore_create_document": {

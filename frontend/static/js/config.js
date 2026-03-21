@@ -196,18 +196,22 @@ function renderProfiles(profiles) {
   const el = document.getElementById('profiles-list');
   const entries = Object.entries(profiles);
   if (!entries.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No profiles</h3><p>Create a custom redaction profile to save entity sets for reuse.</p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No profiles</h3><p>Restore defaults to bring back built-in level profiles.</p></div>`;
     return;
   }
   el.innerHTML = `<table><thead><tr><th>Name</th><th>Entities</th><th>Description</th><th>Actions</th></tr></thead><tbody>` +
     entries.map(([name, p]) => `
       <tr>
-        <td><strong>${name}</strong></td>
+        <td>
+          <strong>${name}</strong>
+          ${p.builtin ? '<span style="font-size:10px;color:var(--muted);margin-left:6px">built-in</span>' : ''}
+        </td>
         <td>${p.entities.length} types</td>
         <td style="color:var(--muted)">${p.description || '—'}</td>
         <td>
           <div style="display:flex;gap:6px">
-            <button onclick="editProfile('${name}')" class="btn btn-ghost btn-sm">Edit</button>
+            ${!p.builtin ? `<button onclick="editProfile('${name}')" class="btn btn-ghost btn-sm">Edit</button>` : ''}
+            <button onclick="duplicateProfile('${name}')" class="btn btn-ghost btn-sm">Duplicate</button>
             <button onclick="deleteProfile('${name}')" class="btn btn-danger btn-sm">Delete</button>
           </div>
         </td>
@@ -288,11 +292,28 @@ async function saveProfile() {
   } catch (e) { console.error(e); }
 }
 
+async function duplicateProfile(name) {
+  try {
+    const res = await api.post(`/config/profiles/${name}/duplicate`, {});
+    showToast(`Duplicated as "${res.name}"`, 'success');
+    loadProfiles();
+  } catch (e) { console.error(e); }
+}
+
 async function deleteProfile(name) {
   if (!confirm(`Delete profile "${name}"?`)) return;
   try {
     await api.delete(`/config/profiles/${name}`);
     showToast('Profile deleted', 'success');
+    loadProfiles();
+  } catch (e) { console.error(e); }
+}
+
+async function restoreDefaultProfiles() {
+  if (!confirm('Restore all built-in default profiles? Your custom profiles will not be affected.')) return;
+  try {
+    await api.post('/config/profiles/_restore_defaults', {});
+    showToast('Default profiles restored', 'success');
     loadProfiles();
   } catch (e) { console.error(e); }
 }
@@ -331,28 +352,32 @@ function renderWebhooks(webhooks) {
 
 async function loadWatchedFolders() {
   try {
-    const [folders, profiles, levels] = await Promise.all([
+    const [folders, profiles] = await Promise.all([
       api.get('/config/watched-folders'),
       api.get('/config/profiles'),
-      api.get('/config/levels'),
     ]);
     renderWatchedFolders(folders);
-    populateFolderProfileDropdowns(levels.map(l => l.level), Object.keys(profiles));
+    populateFolderProfileDropdown(profiles);
   } catch (e) { console.error(e); }
 }
 
-function populateFolderProfileDropdowns(levelNames, profileNames) {
+function populateFolderProfileDropdown(profiles) {
   const sel = document.getElementById('wf-profile');
   if (!sel) return;
   const current = sel.value;
+  const entries = Object.entries(profiles);
+  const builtins = entries.filter(([, p]) => p.builtin);
+  const custom = entries.filter(([, p]) => !p.builtin);
   let html = '<option value="">— System Default —</option>';
-  html += '<optgroup label="Redaction Levels">' +
-    levelNames.filter(l => l !== 'custom').map(l =>
-      `<option value="${l}"${l === current ? ' selected' : ''}>${l.charAt(0).toUpperCase() + l.slice(1)}</option>`
-    ).join('') + '</optgroup>';
-  if (profileNames.length) {
+  if (builtins.length) {
+    html += '<optgroup label="Built-in Levels">' +
+      builtins.map(([name]) =>
+        `<option value="${name}"${name === current ? ' selected' : ''}>${name.charAt(0).toUpperCase() + name.slice(1)}</option>`
+      ).join('') + '</optgroup>';
+  }
+  if (custom.length) {
     html += '<optgroup label="Custom Profiles">' +
-      profileNames.map(p => `<option value="${p}"${p === current ? ' selected' : ''}>${p}</option>`).join('') +
+      custom.map(([name]) => `<option value="${name}"${name === current ? ' selected' : ''}>${name}</option>`).join('') +
       '</optgroup>';
   }
   sel.innerHTML = html;

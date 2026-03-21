@@ -72,9 +72,12 @@ async def list_profiles():
 
 @router.post("/profiles")
 async def create_profile(profile: ProfileCreate):
+    from app.config import _DEFAULT_RUNTIME_CONFIG
     config = load_runtime_config()
     profiles = config.get("profiles", {})
-    if profile.name in profiles:
+    existing = profiles.get(profile.name)
+    # Allow overriding built-ins via POST; only block duplicates of user-created profiles
+    if existing and not existing.get("builtin"):
         raise HTTPException(status_code=409, detail=f"Profile '{profile.name}' already exists")
     profiles[profile.name] = {
         "entities": profile.entities,
@@ -100,18 +103,63 @@ async def update_profile(name: str, profile: ProfileCreate):
     return {"status": "updated", "name": name}
 
 
-@router.delete("/profiles/{name}")
-async def delete_profile(name: str):
+@router.post("/profiles/{name}/duplicate")
+async def duplicate_profile(name: str):
     config = load_runtime_config()
     profiles = config.get("profiles", {})
     if name not in profiles:
         raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
-    del profiles[name]
-    if config.get("default_profile") == name:
-        config["default_profile"] = None
+    base = f"{name}_copy"
+    new_name = base
+    n = 2
+    while new_name in profiles:
+        new_name = f"{base}_{n}"
+        n += 1
+    source = profiles[name]
+    profiles[new_name] = {
+        "entities": list(source.get("entities", [])),
+        "description": source.get("description", ""),
+    }
     config["profiles"] = profiles
     save_runtime_config(config)
+    return {"status": "duplicated", "name": new_name}
+
+
+@router.delete("/profiles/{name}")
+async def delete_profile(name: str):
+    import json as _json
+    from app.config import _RUNTIME_CONFIG_PATH
+    config = load_runtime_config()
+    if name not in config.get("profiles", {}):
+        raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
+    # Write a None marker so built-in profiles stay deleted across restarts
+    saved = {}
+    if _RUNTIME_CONFIG_PATH.exists():
+        try:
+            saved = _json.loads(_RUNTIME_CONFIG_PATH.read_text())
+        except Exception:
+            pass
+    saved.setdefault("profiles", {})[name] = None
+    if saved.get("default_profile") == name:
+        saved["default_profile"] = None
+    save_runtime_config(saved)
     return {"status": "deleted"}
+
+
+@router.post("/profiles/_restore_defaults")
+async def restore_default_profiles():
+    """Remove all saved profile overrides (including deletion markers) so built-in defaults reappear."""
+    import json as _json
+    from app.config import _RUNTIME_CONFIG_PATH
+    saved = {}
+    if _RUNTIME_CONFIG_PATH.exists():
+        try:
+            saved = _json.loads(_RUNTIME_CONFIG_PATH.read_text())
+        except Exception:
+            pass
+    saved.pop("profiles", None)
+    save_runtime_config(saved)
+    return {"status": "restored"}
 
 
 # --- Watched Folders ---
