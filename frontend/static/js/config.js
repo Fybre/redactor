@@ -331,21 +331,31 @@ function renderWebhooks(webhooks) {
 
 async function loadWatchedFolders() {
   try {
-    const [folders, profiles] = await Promise.all([
+    const [folders, profiles, levels] = await Promise.all([
       api.get('/config/watched-folders'),
       api.get('/config/profiles'),
+      api.get('/config/levels'),
     ]);
     renderWatchedFolders(folders);
-    populateFolderProfileDropdowns(Object.keys(profiles));
+    populateFolderProfileDropdowns(levels.map(l => l.level), Object.keys(profiles));
   } catch (e) { console.error(e); }
 }
 
-function populateFolderProfileDropdowns(profileNames) {
+function populateFolderProfileDropdowns(levelNames, profileNames) {
   const sel = document.getElementById('wf-profile');
   if (!sel) return;
   const current = sel.value;
-  sel.innerHTML = '<option value="">— Default —</option>' +
-    profileNames.map(p => `<option value="${p}"${p === current ? ' selected' : ''}>${p}</option>`).join('');
+  let html = '<option value="">— System Default —</option>';
+  html += '<optgroup label="Redaction Levels">' +
+    levelNames.filter(l => l !== 'custom').map(l =>
+      `<option value="${l}"${l === current ? ' selected' : ''}>${l.charAt(0).toUpperCase() + l.slice(1)}</option>`
+    ).join('') + '</optgroup>';
+  if (profileNames.length) {
+    html += '<optgroup label="Custom Profiles">' +
+      profileNames.map(p => `<option value="${p}"${p === current ? ' selected' : ''}>${p}</option>`).join('') +
+      '</optgroup>';
+  }
+  sel.innerHTML = html;
 }
 
 function renderWatchedFolders(folders) {

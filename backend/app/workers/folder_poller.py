@@ -11,8 +11,10 @@ from pathlib import Path
 
 from app.config import settings, get_runtime_value
 from app.database import AsyncSessionLocal
-from app.models.job import Job, JobStatus
+from app.models.job import Job, JobStatus, RedactionLevel
 from app.utils.file_utils import compute_sha256
+
+_BUILTIN_LEVELS = {l.value for l in RedactionLevel if l != RedactionLevel.CUSTOM}
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +42,21 @@ async def _submit_file(
     level = config.get("default_redaction_level", settings.default_redaction_level)
     output_mode = config.get("default_output_mode", settings.default_output_mode)
 
-    # Resolve profile → custom_entities
+    # Resolve profile → level / custom_entities
     custom_entities = None
     if profile:
-        profiles = config.get("profiles", {})
-        if profile in profiles:
-            custom_entities = profiles[profile].get("entities", [])
-            level = "custom"
+        if profile in _BUILTIN_LEVELS:
+            # It's a built-in redaction level name (minimal, standard, aggressive, maximum)
+            level = profile
+            profile = None  # don't store as profile_name
         else:
-            logger.warning(f"Watched folder profile '{profile}' not found — using default level")
+            profiles = config.get("profiles", {})
+            if profile in profiles:
+                custom_entities = profiles[profile].get("entities", [])
+                level = "custom"
+            else:
+                logger.warning(f"Watched folder profile '{profile}' not found — using default level")
+                profile = None
 
     file_hash = compute_sha256(file_path)
     if await _hash_known_to_db(file_hash):
