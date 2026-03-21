@@ -176,8 +176,10 @@ class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     body: str
-    headers: Optional[dict] = None   # HTTP headers sent with the rendered webhook POST
-    pre_fetch_url: Optional[str] = None  # URL to GET before rendering (result available as {{ fetched }})
+    headers: Optional[dict] = None        # HTTP headers sent with the rendered webhook POST
+    pre_fetch_url: Optional[str] = None   # URL to call before rendering (result available as {{ fetched }})
+    pre_fetch_method: Optional[str] = "GET"  # HTTP method for pre-fetch (GET or POST)
+    pre_fetch_body: Optional[str] = None  # Jinja2 body template for pre-fetch POST requests
 
 
 @router.get("/templates")
@@ -191,6 +193,8 @@ async def list_templates():
             "body": t.get("body", ""),
             "headers": _mask_headers(t.get("headers") or {}),
             "pre_fetch_url": t.get("pre_fetch_url") or "",
+            "pre_fetch_method": t.get("pre_fetch_method") or "GET",
+            "pre_fetch_body": t.get("pre_fetch_body") or "",
         }
         for name, t in templates.items()
     ]
@@ -207,6 +211,8 @@ async def create_template(template: TemplateCreate):
         "body": template.body,
         "headers": template.headers or {},
         "pre_fetch_url": template.pre_fetch_url or "",
+        "pre_fetch_method": template.pre_fetch_method or "GET",
+        "pre_fetch_body": template.pre_fetch_body or "",
     }
     save_runtime_config(config)
     return {"status": "created", "name": template.name}
@@ -226,6 +232,8 @@ async def update_template(name: str, template: TemplateCreate):
         "body": template.body,
         "headers": _merge_headers(templates[name].get("headers", {}), template.headers),
         "pre_fetch_url": template.pre_fetch_url or "",
+        "pre_fetch_method": template.pre_fetch_method or "GET",
+        "pre_fetch_body": template.pre_fetch_body or "",
     }
     if new_name != name:
         # Rebuild dict to preserve insertion order with the new key in place of the old

@@ -139,6 +139,8 @@ async def _run_job(job_id: str) -> None:
                                 tmpl["body"], job,
                                 pre_fetch_url=tmpl.get("pre_fetch_url"),
                                 pre_fetch_headers=effective_headers,
+                                pre_fetch_method=tmpl.get("pre_fetch_method") or "GET",
+                                pre_fetch_body=tmpl.get("pre_fetch_body") or None,
                             )
                         if tmpl.get("headers"):
                             template_headers = {**(job_webhook_headers or {}), **tmpl["headers"]}
@@ -368,6 +370,8 @@ async def run_validation_job(job_id: str) -> None:
                                 tmpl["body"], job,
                                 pre_fetch_url=tmpl.get("pre_fetch_url"),
                                 pre_fetch_headers=effective_headers,
+                                pre_fetch_method=tmpl.get("pre_fetch_method") or "GET",
+                                pre_fetch_body=tmpl.get("pre_fetch_body") or None,
                             )
                         if tmpl.get("headers"):
                             template_headers = {**(job_webhook_headers or {}), **tmpl["headers"]}

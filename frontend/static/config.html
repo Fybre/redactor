@@ -327,9 +327,19 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Pre-fetch URL <span style="font-weight:400;color:var(--muted)">(optional — GET this URL before rendering; response available as <code>{{ fetched }}</code>)</span></label>
-        <input type="text" id="tmpl-pre-fetch-url" placeholder="e.g. https://host/restun/GetDocument?DocNo={{ doc_no }}">
+        <label>Pre-fetch URL <span style="font-weight:400;color:var(--muted)">(optional — call this URL before rendering; response available as <code>{{ fetched }}</code>)</span></label>
+        <div style="display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start">
+          <select id="tmpl-pre-fetch-method" style="height:36px" onchange="onPreFetchMethodChange()">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+          </select>
+          <input type="text" id="tmpl-pre-fetch-url" placeholder="e.g. https://host/restun/GetDocumentIndexData">
+        </div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px">Uses the same auth headers as the webhook. Useful for fetching the current Therefore <code>LastChangeTimeISO8601</code> before calling UpdateDocument.</div>
+      </div>
+      <div class="form-group" id="tmpl-pre-fetch-body-group" style="display:none">
+        <label>Pre-fetch Body (Jinja2) <span style="font-weight:400;color:var(--muted)">(sent as JSON body for POST pre-fetch)</span></label>
+        <textarea id="tmpl-pre-fetch-body" rows="4" style="font-family:monospace;font-size:12px;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical" placeholder='{ "DocNo": {{ doc_no }} }'></textarea>
       </div>
       <div class="form-group">
         <label>Template Body (Jinja2) *</label>
