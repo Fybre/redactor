@@ -181,6 +181,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${name}`));
   if (name === 'folders') loadWatchedFolders();
+  if (name === 'entities') loadEntities();
 }
 
 // ── Profiles ─────────────────────────────────────────────
@@ -347,6 +348,108 @@ function renderWebhooks(webhooks) {
           </div>
         </td>
       </tr>`).join('') + `</tbody></table>`;
+}
+
+// ── Entities & Recognizers ────────────────────────────────────────────────────
+
+async function loadEntities() {
+  try {
+    const [entities, recognizers] = await Promise.all([
+      api.get('/config/entities'),
+      api.get('/config/recognizers'),
+    ]);
+    renderEntityList(entities);
+    renderCustomRecognizers(recognizers);
+  } catch (e) { console.error(e); }
+}
+
+function recTypeBadge(type) {
+  const map = { pattern: ['#1e3a5f','#93c5fd','Pattern'], ner: ['#134e4a','#5eead4','NER'], deny_list: ['#3b1f5e','#c4b5fd','Deny List'] };
+  const [bg, color, label] = map[type] || ['#333','#ccc', type];
+  return `<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:${bg};color:${color}">${label}</span>`;
+}
+
+function renderEntityList(entities) {
+  const el = document.getElementById('entities-list');
+  el.innerHTML = `<table><thead><tr><th>Entity Type</th><th>Type</th><th>Description</th><th></th></tr></thead><tbody>` +
+    entities.map(e => `
+      <tr>
+        <td style="font-family:monospace;font-size:12px;font-weight:600">${e.type}</td>
+        <td>${recTypeBadge(e.recognizer_type)}</td>
+        <td style="color:var(--muted);font-size:12px">${e.description || '—'}</td>
+        <td>${e.custom ? '<span style="font-size:10px;color:var(--muted)">custom</span>' : ''}</td>
+      </tr>`).join('') + `</tbody></table>`;
+}
+
+function renderCustomRecognizers(recognizers) {
+  const el = document.getElementById('custom-recognizers-list');
+  if (!recognizers.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No custom recognizers defined.</div>';
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Name</th><th>Entity Type</th><th>Type</th><th>Detail</th><th>Actions</th></tr></thead><tbody>` +
+    recognizers.map(r => {
+      const detail = r.type === 'pattern'
+        ? (r.patterns || []).map(p => `<code style="font-size:11px">${p.regex}</code>`).join(', ')
+        : `${(r.deny_list || []).length} values`;
+      return `<tr>
+        <td><strong>${r.name}</strong></td>
+        <td style="font-family:monospace;font-size:12px">${r.entity_type}</td>
+        <td>${recTypeBadge(r.type)}</td>
+        <td style="font-size:12px;color:var(--muted)">${detail}</td>
+        <td><button onclick="deleteRecognizer('${r.id}')" class="btn btn-danger btn-sm">Delete</button></td>
+      </tr>`;
+    }).join('') + `</tbody></table>`;
+}
+
+function onRecTypeChange() {
+  const type = document.getElementById('rec-type').value;
+  document.getElementById('rec-pattern-fields').style.display = type === 'pattern' ? '' : 'none';
+  document.getElementById('rec-denylist-fields').style.display = type === 'deny_list' ? '' : 'none';
+}
+
+async function addRecognizer() {
+  const name = document.getElementById('rec-name').value.trim();
+  const entity_type = document.getElementById('rec-entity-type').value.trim().toUpperCase().replace(/\s+/g, '_');
+  const type = document.getElementById('rec-type').value;
+  if (!name || !entity_type) { showToast('Name and entity type are required', 'error'); return; }
+
+  let payload = { name, entity_type, type };
+  if (type === 'pattern') {
+    const regex = document.getElementById('rec-regex').value.trim();
+    if (!regex) { showToast('Regex pattern is required', 'error'); return; }
+    const score = parseFloat(document.getElementById('rec-score').value) || 0.5;
+    const context = document.getElementById('rec-context').value.split(',').map(s => s.trim()).filter(Boolean);
+    payload.patterns = [{ name: 'pattern', regex, score }];
+    payload.context = context;
+  } else {
+    const raw = document.getElementById('rec-deny-list').value;
+    const deny_list = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!deny_list.length) { showToast('Deny list cannot be empty', 'error'); return; }
+    const context = document.getElementById('rec-deny-context').value.split(',').map(s => s.trim()).filter(Boolean);
+    payload.deny_list = deny_list;
+    payload.context = context;
+  }
+
+  try {
+    await api.post('/config/recognizers', payload);
+    showToast('Recognizer added', 'success');
+    document.getElementById('rec-name').value = '';
+    document.getElementById('rec-entity-type').value = '';
+    document.getElementById('rec-regex').value = '';
+    document.getElementById('rec-deny-list').value = '';
+    document.getElementById('rec-context').value = '';
+    loadEntities();
+  } catch (e) { console.error(e); }
+}
+
+async function deleteRecognizer(id) {
+  if (!confirm('Delete this recognizer?')) return;
+  try {
+    await api.delete(`/config/recognizers/${id}`);
+    showToast('Recognizer deleted', 'success');
+    loadEntities();
+  } catch (e) { console.error(e); }
 }
 
 // ── Watched Folders ───────────────────────────────────────────────────────────
@@ -689,5 +792,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadWatchedFolders();
   loadWebhooks();
   loadTemplates();
+  loadEntities();
   switchTab('system');
 });

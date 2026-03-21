@@ -33,20 +33,80 @@ async def update_config(config: SystemConfig):
 
 @router.get("/entities")
 async def list_entities():
-    """Return all supported entity types with descriptions."""
+    """Return all supported entity types with descriptions and recognizer metadata."""
+    from app.core.presidio_engine import get_entity_info
     try:
-        supported = get_supported_entities()
+        info = get_entity_info()
+        supported = list(info.keys())
     except Exception:
+        info = {}
         supported = list(ENTITY_DESCRIPTIONS.keys())
-    # Include any extra entities defined in ENTITY_DESCRIPTIONS (e.g. LLM-only types)
     all_types = list(supported) + [e for e in ENTITY_DESCRIPTIONS if e not in supported]
     return [
         {
             "type": e,
             "description": ENTITY_DESCRIPTIONS.get(e, e.replace("_", " ").title()),
+            "recognizer_type": info.get(e, {}).get("recognizer_type", "pattern"),
+            "recognizer_name": info.get(e, {}).get("recognizer_name", ""),
+            "custom": info.get(e, {}).get("custom", False),
         }
         for e in all_types
     ]
+
+
+# --- Custom Recognizers ---
+
+class PatternConfig(BaseModel):
+    name: str = "pattern"
+    regex: str
+    score: float = 0.5
+
+
+class RecognizerCreate(BaseModel):
+    name: str
+    entity_type: str
+    type: str                            # "pattern" or "deny_list"
+    patterns: Optional[List[PatternConfig]] = None
+    deny_list: Optional[List[str]] = None
+    context: Optional[List[str]] = None
+
+
+@router.get("/recognizers")
+async def list_recognizers():
+    config = load_runtime_config()
+    return config.get("custom_recognizers", [])
+
+
+@router.post("/recognizers")
+async def add_recognizer(rec: RecognizerCreate):
+    from app.core.presidio_engine import load_custom_recognizers
+    config = load_runtime_config()
+    recognizers = config.get("custom_recognizers", [])
+    entry = {
+        "id": str(uuid.uuid4()),
+        "name": rec.name,
+        "entity_type": rec.entity_type,
+        "type": rec.type,
+        "patterns": [p.model_dump() for p in (rec.patterns or [])],
+        "deny_list": rec.deny_list or [],
+        "context": rec.context or [],
+    }
+    recognizers.append(entry)
+    config["custom_recognizers"] = recognizers
+    save_runtime_config(config)
+    load_custom_recognizers(recognizers)
+    return {"status": "added", "id": entry["id"]}
+
+
+@router.delete("/recognizers/{rec_id}")
+async def delete_recognizer(rec_id: str):
+    from app.core.presidio_engine import load_custom_recognizers
+    config = load_runtime_config()
+    recognizers = config.get("custom_recognizers", [])
+    config["custom_recognizers"] = [r for r in recognizers if r.get("id") != rec_id]
+    save_runtime_config(config)
+    load_custom_recognizers(config["custom_recognizers"])
+    return {"status": "deleted"}
 
 
 @router.get("/levels")

@@ -71,6 +71,7 @@ _DEFAULT_RUNTIME_CONFIG = {
     "llm_model": "llama3.2:3b",
     "llm_api_key": "ollama",
     "allowed_extensions": ["pdf", "png", "jpg", "jpeg", "tiff", "tif"],
+    "custom_recognizers": [],
     "watched_folders": [
         {
             "id": "default",

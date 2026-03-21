@@ -24,8 +24,13 @@ async def lifespan(app: FastAPI):
 
     # Pre-load Presidio (spaCy model) so first request isn't slow
     try:
+        from app.core.presidio_engine import load_custom_recognizers
+        from app.config import load_runtime_config
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, get_analyzer)
+        custom = load_runtime_config().get("custom_recognizers", [])
+        if custom:
+            load_custom_recognizers(custom)
     except Exception as e:
         logger.warning(f"Could not pre-load Presidio: {e}")
 

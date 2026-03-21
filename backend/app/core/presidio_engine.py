@@ -109,3 +109,73 @@ def analyze_text(
 
 def get_supported_entities(language: str = "en") -> List[str]:
     return sorted(get_analyzer().get_supported_entities(language=language))
+
+
+def _recognizer_type(rec) -> str:
+    from presidio_analyzer import PatternRecognizer
+    if isinstance(rec, PatternRecognizer):
+        if getattr(rec, "deny_list", None):
+            return "deny_list"
+        return "pattern"
+    cls = type(rec).__name__.lower()
+    if any(k in cls for k in ("spacy", "transformers", "stanza", "ner")):
+        return "ner"
+    return "pattern"
+
+
+def get_entity_info() -> list:
+    """Return one entry per entity type with recognizer type and whether it's custom."""
+    analyzer = get_analyzer()
+    seen = {}
+    for rec in analyzer.registry.recognizers:
+        rtype = _recognizer_type(rec)
+        is_custom = getattr(rec, "_custom", False)
+        for entity in rec.supported_entities:
+            if entity not in seen:
+                seen[entity] = {"recognizer_type": rtype, "custom": is_custom,
+                                "recognizer_name": type(rec).__name__}
+    return seen
+
+
+def load_custom_recognizers(recognizers_config: list) -> None:
+    """Register custom recognizers from config, replacing any previously loaded ones."""
+    from presidio_analyzer import PatternRecognizer, Pattern
+    analyzer = get_analyzer()
+    # Remove previously loaded custom recognizers
+    analyzer.registry.recognizers = [
+        r for r in analyzer.registry.recognizers if not getattr(r, "_custom", False)
+    ]
+    for cfg in recognizers_config:
+        try:
+            entity_type = cfg["entity_type"]
+            name = cfg.get("name", entity_type)
+            context = cfg.get("context") or []
+            if cfg.get("type") == "pattern":
+                patterns = [
+                    Pattern(
+                        name=p.get("name", "pattern"),
+                        regex=p["regex"],
+                        score=float(p.get("score", 0.5)),
+                    )
+                    for p in cfg.get("patterns", []) if p.get("regex")
+                ]
+                rec = PatternRecognizer(
+                    supported_entity=entity_type,
+                    name=name,
+                    patterns=patterns,
+                    context=context,
+                )
+            elif cfg.get("type") == "deny_list":
+                rec = PatternRecognizer(
+                    supported_entity=entity_type,
+                    name=name,
+                    deny_list=cfg.get("deny_list") or [],
+                    context=context,
+                )
+            else:
+                continue
+            rec._custom = True
+            analyzer.registry.add_recognizer(rec)
+            logger.info(f"Loaded custom recognizer: {name} ({cfg.get('type')}) → {entity_type}")
+        except Exception as e:
+            logger.error(f"Failed to load custom recognizer '{cfg.get('name')}': {e}")
