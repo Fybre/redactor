@@ -130,7 +130,7 @@ async def start_poller():
                         continue
 
                     for entry in folder_path.iterdir():
-                        if entry.is_file() and entry.suffix.lower() in SUPPORTED_EXTENSIONS:
+                        if entry.is_file() and not entry.name.startswith('.') and entry.suffix.lower() in SUPPORTED_EXTENSIONS:
                             await _submit_file(str(entry), profile=profile, custom_output_dir=output_path)
 
         except asyncio.CancelledError:
