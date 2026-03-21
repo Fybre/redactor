@@ -130,7 +130,16 @@ async def start_poller():
                         continue
 
                     for entry in folder_path.iterdir():
-                        if entry.is_file() and not entry.name.startswith('.') and entry.suffix.lower() in SUPPORTED_EXTENSIONS:
+                        if not entry.is_file():
+                            continue
+                        if entry.name.startswith('.'):
+                            try:
+                                entry.unlink()
+                                logger.debug(f"Deleted hidden file from input folder: {entry.name}")
+                            except Exception as e:
+                                logger.warning(f"Could not delete hidden file {entry}: {e}")
+                            continue
+                        if entry.suffix.lower() in SUPPORTED_EXTENSIONS:
                             await _submit_file(str(entry), profile=profile, custom_output_dir=output_path)
 
         except asyncio.CancelledError:
