@@ -239,6 +239,7 @@ function openProfileModal(name = null, existing = null) {
         <input type="checkbox" value="${e.type}" ${checked ? 'checked' : ''} onchange="updateModalCheckbox('${e.type}')">
         <div>
           <div style="font-weight:600;font-size:11px">${e.type}</div>
+          ${e.description ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3">${e.description}</div>` : ''}
         </div>
       </label>`;
   }).join('');
