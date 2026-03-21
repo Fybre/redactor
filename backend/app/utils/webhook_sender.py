@@ -157,6 +157,7 @@ async def fetch_pre_fetch_context(
 ) -> dict:
     """Call a URL before rendering the main template and return the parsed JSON response.
     Result is made available as `fetched` in the template context."""
+    logger.info(f"pre_fetch {method} {url}" + (f"\n{body}" if body else ""))
     try:
         async with httpx.AsyncClient(timeout=_WEBHOOK_TIMEOUT_DEFAULT) as client:
             req_headers = {"Content-Type": "application/json", **(headers or {})}
@@ -165,7 +166,9 @@ async def fetch_pre_fetch_context(
             else:
                 resp = await client.get(url, headers=req_headers)
             if resp.status_code < 400:
-                return resp.json()
+                data = resp.json()
+                logger.info(f"pre_fetch {method} {url} -> HTTP {resp.status_code}")
+                return data
             logger.warning(f"pre_fetch {method} {url} returned HTTP {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         logger.warning(f"pre_fetch {method} {url} failed: {e}")
