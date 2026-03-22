@@ -141,10 +141,10 @@ async def create_profile(profile: ProfileCreate):
     # Allow overriding built-ins via POST; only block duplicates of user-created profiles
     if existing and not existing.get("builtin"):
         raise HTTPException(status_code=409, detail=f"Profile '{profile.name}' already exists")
-    profiles[profile.name] = {
-        "entities": profile.entities,
-        "description": profile.description or "",
-    }
+    entry = {"entities": profile.entities, "description": profile.description or ""}
+    if profile.strategy:
+        entry["strategy"] = profile.strategy
+    profiles[profile.name] = entry
     config["profiles"] = profiles
     save_runtime_config(config)
     return {"status": "created", "name": profile.name}
@@ -156,10 +156,10 @@ async def update_profile(name: str, profile: ProfileCreate):
     profiles = config.get("profiles", {})
     if name not in profiles:
         raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
-    profiles[name] = {
-        "entities": profile.entities,
-        "description": profile.description or "",
-    }
+    entry = {"entities": profile.entities, "description": profile.description or ""}
+    if profile.strategy:
+        entry["strategy"] = profile.strategy
+    profiles[name] = entry
     config["profiles"] = profiles
     save_runtime_config(config)
     return {"status": "updated", "name": name}
@@ -178,10 +178,13 @@ async def duplicate_profile(name: str):
         new_name = f"{base}_{n}"
         n += 1
     source = profiles[name]
-    profiles[new_name] = {
+    dup = {
         "entities": list(source.get("entities", [])),
         "description": source.get("description", ""),
     }
+    if source.get("strategy"):
+        dup["strategy"] = source["strategy"]
+    profiles[new_name] = dup
     config["profiles"] = profiles
     save_runtime_config(config)
     return {"status": "duplicated", "name": new_name}

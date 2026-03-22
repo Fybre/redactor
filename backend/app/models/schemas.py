@@ -57,6 +57,7 @@ class ProfileCreate(BaseModel):
     name: str
     entities: List[str]
     description: Optional[str] = None
+    strategy: Optional[str] = None  # None = inherit system default; "presidio" | "llm" | "both"
 
 
 class WebhookConfig(BaseModel):

@@ -18,6 +18,28 @@ from app.utils.webhook_sender import send_webhook, build_job_payload, render_web
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_strategy(system_strategy: str, profile_name: str | None, profiles: dict) -> str:
+    """Return effective detection strategy, respecting profile override within system limits."""
+    if not profile_name:
+        return system_strategy
+    profile_strategy = profiles.get(profile_name, {}).get("strategy")
+    if not profile_strategy:
+        return system_strategy
+    # Check compatibility: a profile can only use what the system enables
+    sys_llm = system_strategy in ("llm", "both")
+    sys_presidio = system_strategy in ("presidio", "both")
+    needs_llm = profile_strategy in ("llm", "both")
+    needs_presidio = profile_strategy in ("presidio", "both")
+    if (needs_llm and not sys_llm) or (needs_presidio and not sys_presidio):
+        logger.warning(
+            f"Profile '{profile_name}' strategy '{profile_strategy}' is incompatible with "
+            f"system strategy '{system_strategy}' — using system strategy"
+        )
+        return system_strategy
+    return profile_strategy
+
+
 # Semaphore set after startup based on runtime config
 _semaphore: asyncio.Semaphore = None
 
@@ -57,6 +79,7 @@ async def _run_job(job_id: str) -> None:
         job_input_path = job.input_path
         job_level = job.level
         job_custom_entities = job.custom_entities
+        job_profile_name = job.profile_name
         job_output_mode = job.output_mode
         job_webhook_url = job.webhook_url
         job_webhook_secret = job.webhook_secret
@@ -75,7 +98,11 @@ async def _run_job(job_id: str) -> None:
         redaction_color = tuple(config.get("redaction_color", [0, 0, 0]))
         ocr_language = config.get("ocr_language", "eng")
         retain = config.get("retain_originals", settings.retain_originals)
-        detection_strategy = config.get("detection_strategy", "presidio")
+        detection_strategy = _resolve_strategy(
+            config.get("detection_strategy", "presidio"),
+            job_profile_name,
+            config.get("profiles", {}),
+        )
         llm_base_url = config.get("llm_base_url", "http://ollama:11434/v1")
         llm_model = config.get("llm_model", "llama3.2:3b")
         llm_api_key = config.get("llm_api_key", "ollama")
@@ -206,6 +233,7 @@ async def run_detection_job(job_id: str) -> None:
         job_input_path = job.input_path
         job_level = job.level
         job_custom_entities = job.custom_entities
+        job_profile_name = job.profile_name
 
     try:
         config = {}
@@ -215,7 +243,11 @@ async def run_detection_job(job_id: str) -> None:
             pass
 
         ocr_language = config.get("ocr_language", "eng")
-        detection_strategy = config.get("detection_strategy", "presidio")
+        detection_strategy = _resolve_strategy(
+            config.get("detection_strategy", "presidio"),
+            job_profile_name,
+            config.get("profiles", {}),
+        )
         llm_base_url = config.get("llm_base_url", "http://ollama:11434/v1")
         llm_model = config.get("llm_model", "llama3.2:3b")
         llm_api_key = config.get("llm_api_key", "ollama")

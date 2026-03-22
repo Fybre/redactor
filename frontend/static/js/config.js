@@ -186,11 +186,30 @@ function switchTab(name) {
 
 // ── Profiles ─────────────────────────────────────────────
 
+let _systemStrategy = 'presidio';
+
 async function loadProfiles() {
   try {
-    const profiles = await api.get('/config/profiles');
+    const [profiles, cfg] = await Promise.all([
+      api.get('/config/profiles'),
+      api.get('/config'),
+    ]);
+    _systemStrategy = cfg.detection_strategy || 'presidio';
     renderProfiles(profiles);
   } catch (e) { console.error(e); }
+}
+
+function _strategyLabel(s) {
+  return s === 'presidio' ? 'Presidio' : s === 'llm' ? 'LLM' : s === 'both' ? 'Both' : s;
+}
+
+function _strategyCompatible(profileStrategy) {
+  if (!profileStrategy) return true;
+  const sysLlm = _systemStrategy === 'llm' || _systemStrategy === 'both';
+  const sysPresidio = _systemStrategy === 'presidio' || _systemStrategy === 'both';
+  const needsLlm = profileStrategy === 'llm' || profileStrategy === 'both';
+  const needsPresidio = profileStrategy === 'presidio' || profileStrategy === 'both';
+  return (!needsLlm || sysLlm) && (!needsPresidio || sysPresidio);
 }
 
 function renderProfiles(profiles) {
@@ -200,14 +219,20 @@ function renderProfiles(profiles) {
     el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No profiles</h3><p>Restore defaults to bring back built-in level profiles.</p></div>`;
     return;
   }
-  el.innerHTML = `<table><thead><tr><th>Name</th><th>Entities</th><th>Description</th><th>Actions</th></tr></thead><tbody>` +
-    entries.map(([name, p]) => `
-      <tr>
+  el.innerHTML = `<table><thead><tr><th>Name</th><th>Entities</th><th>Strategy</th><th>Description</th><th>Actions</th></tr></thead><tbody>` +
+    entries.map(([name, p]) => {
+      const compatible = _strategyCompatible(p.strategy);
+      const strategyCell = p.strategy
+        ? `<span style="font-size:11px">${_strategyLabel(p.strategy)}${!compatible ? ' <span title="Incompatible with system strategy — will fall back to system default" style="color:#e67e22">⚠</span>' : ''}</span>`
+        : `<span style="font-size:11px;color:var(--muted)">System default</span>`;
+      return `
+      <tr${!compatible ? ' style="opacity:0.75"' : ''}>
         <td>
           <strong>${name}</strong>
           ${p.builtin ? '<span style="font-size:10px;color:var(--muted);margin-left:6px">built-in</span>' : ''}
         </td>
         <td>${p.entities.length} types</td>
+        <td>${strategyCell}</td>
         <td style="color:var(--muted)">${p.description || '—'}</td>
         <td>
           <div style="display:flex;gap:6px">
@@ -216,7 +241,8 @@ function renderProfiles(profiles) {
             <button onclick="deleteProfile('${name}')" class="btn btn-danger btn-sm">Delete</button>
           </div>
         </td>
-      </tr>`).join('') + `</tbody></table>`;
+      </tr>`;
+    }).join('') + `</tbody></table>`;
 }
 
 async function loadEntitiesForModal() {
@@ -226,11 +252,46 @@ async function loadEntitiesForModal() {
   } catch (e) { console.error(e); }
 }
 
+async function _populateStrategyDropdown(currentStrategy) {
+  // Fetch current system strategy to know what options are valid
+  let systemStrategy = 'presidio';
+  try {
+    const cfg = await api.get('/config');
+    systemStrategy = cfg.detection_strategy || 'presidio';
+  } catch (e) { /* fallback */ }
+
+  const sel = document.getElementById('modal-profile-strategy');
+  const LABELS = { presidio: 'Presidio (pattern & NER)', llm: 'LLM (AI detection)', both: 'Both (Presidio + LLM)' };
+  // Which options are enabled given the system strategy
+  const allowed = systemStrategy === 'both' ? ['presidio', 'llm', 'both']
+                : systemStrategy === 'llm'  ? ['llm']
+                : ['presidio'];
+
+  sel.innerHTML = '<option value="">Inherit system default</option>' +
+    allowed.map(v => `<option value="${v}">${LABELS[v]}</option>`).join('');
+
+  sel.value = allowed.includes(currentStrategy) ? (currentStrategy || '') : '';
+
+  // Warn if the saved strategy is incompatible with the current system setting
+  const warn = document.getElementById('modal-profile-strategy-warn');
+  if (currentStrategy && !allowed.includes(currentStrategy)) {
+    warn.style.display = '';
+    // Add the incompatible option so the user can see it
+    sel.insertAdjacentHTML('beforeend', `<option value="${currentStrategy}" disabled>${LABELS[currentStrategy] || currentStrategy} (unavailable)</option>`);
+    sel.value = '';
+  } else {
+    warn.style.display = 'none';
+  }
+
+  return systemStrategy;
+}
+
 function openProfileModal(name = null, existing = null) {
   editingProfile = name;
   document.getElementById('modal-profile-name').value = name || '';
   document.getElementById('modal-profile-desc').value = existing?.description || '';
   document.getElementById('modal-profile-name').disabled = !!name;
+  _populateStrategyDropdown(existing?.strategy || '');
 
   const grid = document.getElementById('modal-entity-grid');
   grid.innerHTML = allEntities.map(e => {
@@ -280,7 +341,8 @@ async function saveProfile() {
   const entities = Array.from(document.querySelectorAll('#modal-entity-grid input:checked')).map(cb => cb.value);
   if (!entities.length) { showToast('Select at least one entity', 'error'); return; }
 
-  const payload = { name, entities, description: desc };
+  const strategy = document.getElementById('modal-profile-strategy').value || null;
+  const payload = { name, entities, description: desc, ...(strategy ? { strategy } : {}) };
   try {
     if (editingProfile) {
       await api.put(`/config/profiles/${editingProfile}`, payload);
