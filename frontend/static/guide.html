@@ -257,12 +257,16 @@
           <a href="#uploading">Uploading Documents</a>
           <a href="#folder-polling">Folder Polling</a>
           <a href="#jobs">Managing Jobs</a>
-          <a href="#profiles">Custom Profiles</a>
+          <a href="#profiles">Redaction Profiles</a>
+          <a href="#entities">Custom Entities</a>
           <a href="#webhooks">Webhooks</a>
           <a href="#templates">Webhook Templates</a>
           <a href="#rest-api">REST API</a>
           <a href="#configuration">Configuration</a>
           <a href="#therefore">Therefore Integration</a>
+          <a class="sub" href="#therefore-immediate">Immediate update</a>
+          <a class="sub" href="#therefore-validation">Validation workflow</a>
+          <a class="sub" href="#therefore-skip-review">Skip if auto-approved</a>
           <a href="#admin">Admin Reference</a>
         </div>
 
@@ -453,25 +457,52 @@
 
           <section id="folder-polling">
             <h2>📁 Folder Polling</h2>
-            <p>When folder polling is enabled, Redactor automatically processes any file placed in the <code>/data/input/</code> directory. No API call required — just drop the file and it will appear as a completed job on the Dashboard within one poll interval.</p>
+            <p>Redactor can watch one or more input folders and automatically process any file that appears in them. No API call required — drop a file and it appears as a completed job on the Dashboard within one poll interval.</p>
+
+            <h3>Watched folders</h3>
+            <p>Go to <strong>Configuration → Watched Folders</strong> to manage input folders. Each folder has:</p>
+            <ul>
+              <li><strong>Name</strong> — a label for the dashboard</li>
+              <li><strong>Input path</strong> — absolute path inside the container (e.g. <code>/data/input/hr</code>)</li>
+              <li><strong>Output path</strong> — where redacted files are saved (leave blank to use the global output directory)</li>
+              <li><strong>Redaction profile</strong> — which profile to apply to files from this folder (leave blank to use the system default level)</li>
+              <li><strong>Enabled</strong> — toggle a folder on or off without deleting it</li>
+            </ul>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>
+                Use sub-folders to route different document types to different redaction profiles. For example: <code>/data/input/hr</code> with a "HR Documents" profile, <code>/data/input/finance</code> with a "Finance Minimal" profile, each writing to its own output path.
+              </div>
+            </div>
+
+            <h3>Example: three watched folders with different profiles</h3>
+            <table class="level-table">
+              <thead><tr><th>Folder</th><th>Input path</th><th>Profile</th><th>Output path</th></tr></thead>
+              <tbody>
+                <tr><td>HR Documents</td><td><code>/data/input/hr</code></td><td>HR Standard</td><td><code>/data/output/hr</code></td></tr>
+                <tr><td>Finance</td><td><code>/data/input/finance</code></td><td>minimal</td><td><code>/data/output/finance</code></td></tr>
+                <tr><td>Legal</td><td><code>/data/input/legal</code></td><td>maximum</td><td><code>/data/output/legal</code></td></tr>
+              </tbody>
+            </table>
 
             <h3>How to drop files</h3>
             <pre><code># Via docker cp (named volume)
-docker cp document.pdf redactor-backend:/data/input/
+docker cp document.pdf redactor-backend:/data/input/hr/
 
 # Via host-mounted volume
-cp document.pdf /your/host/path/input/</code></pre>
+cp document.pdf /your/host/path/input/hr/</code></pre>
 
             <h3>How polling works</h3>
             <ul>
-              <li>Each file's SHA-256 hash is recorded on first processing so the same file is never processed twice</li>
-              <li>Files are moved out of <code>/data/input/</code> after being queued to prevent re-processing</li>
-              <li>Polled files use the system default redaction level and output mode set in Configuration</li>
-              <li>The poll interval is configurable (default 15 seconds) and can be changed without restarting</li>
+              <li>Each file's SHA-256 hash is recorded on first processing — the same file is never processed twice</li>
+              <li>Files are moved out of the input folder after being queued to prevent re-processing</li>
+              <li>macOS resource fork files (<code>._filename</code>) and other hidden dot-files are silently deleted and ignored</li>
+              <li>The poll interval is configurable (default 15 s) and can be changed without restarting</li>
             </ul>
 
             <h3>Enabling / disabling polling</h3>
-            <p>Go to <strong>Configuration → System Settings</strong> and toggle <em>Enable automatic folder polling</em>. Changes take effect immediately without a restart.</p>
+            <p>Go to <strong>Configuration → System Settings</strong> and toggle <em>Enable automatic folder polling</em>. Individual folders can also be toggled on/off in <strong>Configuration → Watched Folders</strong>.</p>
           </section>
 
           <section id="jobs">
@@ -506,11 +537,15 @@ cp document.pdf /your/host/path/input/</code></pre>
           </section>
 
           <section id="profiles">
-            <h2>📋 Custom Redaction Profiles</h2>
-            <p>Profiles let you save a named set of entity types so you don't have to specify them individually on every upload. Useful when you have a fixed set of types for a particular workflow or compliance requirement.</p>
+            <h2>📋 Redaction Profiles</h2>
+            <p>A redaction profile is a saved, named combination of entity types and a detection strategy. Profiles let you define compliance-specific configurations once and reuse them across watched folders, API calls, and the upload UI.</p>
 
-            <h3>Creating a profile</h3>
-            <p>Go to <strong>Configuration → Redaction Profiles → New Profile</strong>. Give the profile a name, optionally a description, and check the entity types to include.</p>
+            <h3>Built-in profiles</h3>
+            <p>The four standard redaction levels — <strong>minimal</strong>, <strong>standard</strong>, <strong>aggressive</strong>, and <strong>maximum</strong> — appear automatically as built-in profiles in <strong>Configuration → Redaction Profiles</strong>. They cannot be edited directly, but you can duplicate them and customise the copy.</p>
+            <p>Click <strong>Restore defaults</strong> to bring back any built-in profile that was deleted.</p>
+
+            <h3>Creating a custom profile</h3>
+            <p>Go to <strong>Configuration → Redaction Profiles → New Profile</strong>. Give it a name, an optional description, choose a detection strategy, and tick the entity types to include.</p>
 
             <p>Via API:</p>
             <pre><code>curl -X POST http://redactor-host:8080/api/v1/config/profiles \
@@ -518,14 +553,135 @@ cp document.pdf /your/host/path/input/</code></pre>
   -d '{
     "name": "GDPR Essentials",
     "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "LOCATION"],
-    "description": "Core GDPR personal data fields"
+    "description": "Core GDPR personal data fields",
+    "strategy": "both"
   }'</code></pre>
 
+            <h3>Per-profile detection strategy</h3>
+            <p>Each profile can specify its own detection strategy, overriding the system default for jobs that use that profile:</p>
+            <table class="level-table">
+              <thead><tr><th>Strategy</th><th>When to use</th></tr></thead>
+              <tbody>
+                <tr><td><em>Inherit system default</em></td><td>No override — use whatever the system setting is. Default for all profiles.</td></tr>
+                <tr><td><code>presidio</code></td><td>Pattern matching and NER only. Fast and deterministic. Best for structured data (IDs, emails, credit cards).</td></tr>
+                <tr><td><code>llm</code></td><td>LLM detection only. Better for contextual PII in free-form text (e.g. "my address is…"). Requires Ollama to be configured.</td></tr>
+                <tr><td><code>both</code></td><td>Run Presidio and LLM in parallel and merge results. Most thorough; LLM spans that overlap &gt;80% with a Presidio span are deduplicated.</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠️</span>
+              <div>
+                A profile's strategy must be compatible with the system-level detection strategy setting. If the system is set to <code>presidio</code> only and a profile requests <code>llm</code>, the job falls back to the system strategy and a warning is logged. The <strong>Detection Strategy</strong> column in the profile list shows an ⚠ indicator for incompatible profiles.
+              </div>
+            </div>
+
+            <h3>Example profiles</h3>
+            <p><strong>HR Documents</strong> — full person data with LLM for contextual names:</p>
+            <pre><code>{
+  "name": "HR Documents",
+  "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "DATE_TIME",
+               "LOCATION", "NRP", "MEDICAL_LICENSE"],
+  "description": "Full HR redaction — names, contact details, dates, NI numbers",
+  "strategy": "both"
+}</code></pre>
+
+            <p><strong>Finance Minimal</strong> — structured identifiers only, Presidio is sufficient:</p>
+            <pre><code>{
+  "name": "Finance Minimal",
+  "entities": ["CREDIT_CARD", "IBAN_CODE", "BANK_ACCOUNT", "UK_NHS"],
+  "description": "Financial identifiers only — no names or addresses",
+  "strategy": "presidio"
+}</code></pre>
+
             <h3>Using a profile on upload</h3>
-            <p>Select the profile from the dropdown on the Upload page, or pass <code>profile_name</code> in the API:</p>
             <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
   -F file=@document.pdf \
   -F profile_name="GDPR Essentials"</code></pre>
+
+            <h3>Duplicating a profile</h3>
+            <p>Click <strong>Duplicate</strong> on any profile to create an editable copy. This is the recommended way to customise a built-in level without losing the original.</p>
+          </section>
+
+          <section id="entities">
+            <h2>🔍 Custom Entities</h2>
+            <p>The <strong>Configuration → Entities</strong> tab shows every entity type the system can detect, with its type (pattern/NER/deny-list) and whether it is a custom or built-in recogniser. You can extend detection with your own pattern-based or deny-list recognisers.</p>
+
+            <h3>How detection works</h3>
+            <table class="level-table">
+              <thead><tr><th>Mode</th><th>How it finds PII</th><th>Best for</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>Presidio</strong></td>
+                  <td>Regex patterns + spaCy NER. Fully deterministic — same input always produces the same result.</td>
+                  <td>Structured identifiers (emails, credit cards, SSNs, phone numbers, IBANs) and named entities (persons, locations) in well-formed text.</td>
+                </tr>
+                <tr>
+                  <td><strong>LLM</strong></td>
+                  <td>Sends the text to a local Ollama model with a structured prompt listing the entity types and their descriptions. The model returns spans with type labels.</td>
+                  <td>Free-form prose where PII is written contextually rather than in a predictable format. Also the only way to detect custom entity types that have no fixed pattern.</td>
+                </tr>
+                <tr>
+                  <td><strong>Both</strong></td>
+                  <td>Runs Presidio and LLM in parallel. Merges results; LLM spans that overlap &gt;80% with a Presidio span are dropped (Presidio is more precise on structured data).</td>
+                  <td>Documents that mix structured and free-form PII. Highest recall at the cost of some extra processing time.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>Adding a pattern recogniser</h3>
+            <p>Pattern recognisers detect values that match a regular expression — ideal for internal identifiers with a fixed format (employee IDs, case numbers, account codes).</p>
+
+            <p>Go to <strong>Configuration → Entities → Add Custom Recogniser</strong>, select <strong>Pattern (regex)</strong>, and fill in:</p>
+            <ul>
+              <li><strong>Name</strong> — a display label (e.g. "Employee ID")</li>
+              <li><strong>Entity Type</strong> — the label applied to matches (e.g. <code>EMPLOYEE_ID</code>). Use an existing type to extend it, or a new name to create a new category.</li>
+              <li><strong>Regex Pattern</strong> — the regular expression (e.g. <code>EMP-\d{5}</code>)</li>
+              <li><strong>Confidence Score</strong> — 0.0–1.0. Controls the minimum score reported; higher values mean the match must look more certain before being flagged. Default 0.5 is a safe starting point.</li>
+              <li><strong>Context Words</strong> — optional comma-separated words that boost confidence when they appear near the match (e.g. <code>employee, staff, id</code>)</li>
+              <li><strong>Description</strong> — a plain-English explanation used in the LLM prompt so the model can find the entity contextually even when it doesn't match the regex (e.g. <em>"An internal employee identifier in the format EMP-NNNNN"</em>)</li>
+            </ul>
+
+            <p>Via API:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/config/recognizers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Employee ID",
+    "entity_type": "EMPLOYEE_ID",
+    "type": "pattern",
+    "patterns": [{"name": "emp-id", "regex": "EMP-\\d{5}", "score": 0.85}],
+    "context": ["employee", "staff", "id", "number"],
+    "description": "An internal employee identifier in the format EMP-NNNNN"
+  }'</code></pre>
+
+            <h3>Adding a deny-list recogniser</h3>
+            <p>Deny-list recognisers match exact strings from a fixed list — useful for internal names, project codes, or other values that aren't PII in the generic sense but should be redacted in your context.</p>
+
+            <p>Go to <strong>Configuration → Entities → Add Custom Recogniser</strong>, select <strong>Deny List</strong>, and enter one value per line in the Deny List Values field.</p>
+
+            <p>Via API:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/config/recognizers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Internal Project Names",
+    "entity_type": "PROJECT_NAME",
+    "type": "deny_list",
+    "deny_list": ["Project Phoenix", "Project Atlas", "Operation Clearwater"],
+    "context": ["project", "operation", "codename"],
+    "description": "Internal project codenames that must not appear in externally shared documents"
+  }'</code></pre>
+
+            <div class="callout callout-tip">
+              <span class="callout-icon">💡</span>
+              <div>
+                <strong>LLM and custom entities:</strong> The <em>Description</em> field is passed directly to the LLM prompt when using the <code>llm</code> or <code>both</code> detection strategy. A clear, specific description (e.g. <em>"A 10-digit internal case reference beginning with CR-"</em>) dramatically improves the model's ability to find instances that don't exactly match your regex — for example, when the value is paraphrased or partially obscured.
+              </div>
+            </div>
+
+            <h3>Using custom entities in a profile</h3>
+            <p>Once a custom recogniser is added, its entity type appears in the entity list when creating or editing a profile. Tick it alongside any standard entities to include it in the profile's detection set.</p>
+
+            <p>For the LLM to detect custom entities, the profile (or system default) must use the <code>llm</code> or <code>both</code> strategy and the entity type must be ticked in the profile.</p>
           </section>
 
           <section id="webhooks">
@@ -721,70 +877,50 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
           <section id="therefore">
             <h2>🗂 Therefore™ Integration</h2>
             <p>
-              This section covers the full round-trip workflow between Therefore and Redactor.
-              The recommended approach posts directly to Therefore's REST API using a webhook
-              template — no adapter service is required. Three built-in templates cover the common cases:
-              <code>therefore_create_document</code>, <code>therefore_update_document</code>, and <code>therefore_update_document2</code>.
-            </p>
-
-            <div class="callout callout-info">
-              <span class="callout-icon">ℹ️</span>
-              <div>
-                <strong>Flow overview:</strong> Therefore sends a document to Redactor via a REST Request action →
-                Redactor redacts it → Redactor renders the webhook template and posts directly to Therefore's
-                API endpoint with the redacted file as a base64 stream.
-              </div>
-            </div>
-
-            <h3>UpdateDocument flow — redact an existing Therefore document</h3>
-            <p>
-              Use this when the document already exists in Therefore and you want to replace its stream with the
-              redacted version — for example, triggered from a review or approval workflow.
-            </p>
-            <p>
-              The <code>therefore_update_document</code> template calls Therefore's <code>UpdateDocument</code> endpoint.
-              It requires two variables: <code>doc_no</code> (the Therefore document number) and optionally
-              <code>stream_no</code> (defaults to <code>0</code>).
+              Redactor can post directly to Therefore's REST API on job completion using a webhook template — no adapter service required. The recommended pattern is to use the <code>therefore_update_document</code> template to replace an existing document's stream with the redacted version.
             </p>
 
             <div class="callout callout-warning">
               <span class="callout-icon">⚠️</span>
               <div>
-                <strong>Therefore REST Call task mangles JSON.</strong> The REST Call task in Therefore workflows
-                corrupts JSON string values passed as field values — so <code>webhook_headers={"Authorization":"Basic xxx"}</code>
-                arrives garbled. Use individual prefixed fields instead: one plain-text field per header or variable,
-                no JSON required.
+                <strong>Therefore REST Call task mangles JSON.</strong> The REST Call task in Therefore workflows corrupts JSON string values passed as Body fields — so <code>webhook_headers={"Authorization":"..."}</code> arrives garbled. Use individual <em>prefixed</em> fields instead: one plain-text field per header or extra variable, no JSON required.
               </div>
             </div>
 
-            <p>Configure the REST Call task in Therefore with these fields:</p>
-            <table class="level-table">
-              <thead><tr><th>Field name</th><th>Value</th></tr></thead>
-              <tbody>
-                <tr><td><code>output_mode</code></td><td><code>webhook</code></td></tr>
-                <tr><td><code>webhook_url</code></td><td><code>https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument</code></td></tr>
-                <tr><td><code>webhook_template</code></td><td><code>therefore_update_document</code></td></tr>
-                <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
-                <tr><td><code>webhook_header_Authorization</code></td><td><code>Basic &lt;base64(user:pass)&gt;</code></td></tr>
-                <tr><td><code>webhook_header_TenantName</code></td><td><code>acme</code> (Therefore Online only)</td></tr>
-                <tr><td><code>webhook_header_Content-Type</code></td><td><code>application/json</code></td></tr>
-                <tr><td><code>webhook_extra_doc_no</code></td><td><code>%DocNo%</code> (Therefore workflow variable)</td></tr>
-                <tr><td><code>webhook_extra_stream_no</code></td><td><code>0</code> (optional, defaults to 0 in template)</td></tr>
-                <tr><td><code>level</code></td><td><code>standard</code> (or your preferred level)</td></tr>
-              </tbody>
-            </table>
+            <h3 id="therefore-immediate">Pattern 1 — Immediate update without validation</h3>
+            <p>The simplest flow: Therefore submits a document, Redactor redacts it, and immediately calls UpdateDocument to replace the stream. The REST Call task blocks until the full round-trip is complete.</p>
 
-            <div class="callout callout-tip">
-              <span class="callout-icon">💡</span>
-              <div>
-                Point the REST Call task at <strong><code>/upload-sync</code></strong> rather than <code>/upload</code>.
-                The sync endpoint blocks until redaction <em>and</em> webhook delivery are both complete before returning,
-                so Therefore's workflow waits for the full round-trip.
-              </div>
+            <div class="steps">
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Store credentials in the webhook template</strong>
+                <p>Go to <strong>Configuration → Webhook Templates</strong>, edit <code>therefore_update_document</code>, and add your credentials to the HTTP Headers:</p>
+                <pre><code>{
+  "Authorization": "Basic &lt;base64(username:password)&gt;",
+  "TenantName": "acme",
+  "Content-Type": "application/json"
+}</code></pre>
+                <p>Generate the Basic value: <code>echo -n "username:password" | base64</code><br>
+                <code>TenantName</code> is only required for Therefore Online — use your subdomain prefix.</p>
+              </div></div>
+
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Configure the REST Call task in Therefore</strong>
+                <p>In your Therefore workflow, add a REST Call action targeting <code>/api/v1/jobs/upload-sync</code>. Set these Body fields:</p>
+                <table class="level-table">
+                  <thead><tr><th>Field name</th><th>Value</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>output_mode</code></td><td><code>webhook</code></td></tr>
+                    <tr><td><code>webhook_url</code></td><td><code>https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument</code></td></tr>
+                    <tr><td><code>webhook_template</code></td><td><code>therefore_update_document</code></td></tr>
+                    <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
+                    <tr><td><code>webhook_extra_doc_no</code></td><td><code>%DocNo%</code> (Therefore workflow variable)</td></tr>
+                    <tr><td><code>webhook_extra_stream_no</code></td><td><code>0</code></td></tr>
+                    <tr><td><code>level</code></td><td><code>standard</code> (or your preferred level/profile)</td></tr>
+                  </tbody>
+                </table>
+                <p>REST Call task URL: <code>POST http://redactor-host:8080/api/v1/jobs/upload-sync</code></p>
+              </div></div>
             </div>
-
-            <p>REST Call task URL:</p>
-            <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload-sync</code></pre>
 
             <p>Equivalent curl for testing:</p>
             <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload-sync \
@@ -794,171 +930,183 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
   -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument \
   -F webhook_template=therefore_update_document \
   -F webhook_include_file=true \
-  -F webhook_header_Authorization='Basic dXNlcjpwYXNz' \
-  -F webhook_header_TenantName=acme \
-  -F 'webhook_header_Content-Type=application/json' \
   -F webhook_extra_doc_no=4521 \
   -F webhook_extra_stream_no=0</code></pre>
 
             <div class="callout callout-tip">
               <span class="callout-icon">💡</span>
               <div>
-                <strong>Type note:</strong> <code>doc_no</code> arrives as a string, but the template uses
-                <code>"DocNo": {{ doc_no }}</code> (no surrounding quotes), so <code>"4521"</code> renders as the
-                integer <code>4521</code> in the JSON body — correct for Therefore's API. String fields that need
-                quotes in the template already have them: <code>"Field": "{{ value }}"</code>.
+                <strong>Concurrency token:</strong> Therefore's <code>UpdateDocument</code> requires <code>LastChangeTimeISO8601</code> as a concurrency token — it must match the value currently stored in Therefore, not the time Redactor finished processing. Configure a <strong>Pre-fetch URL</strong> on the template to fetch the current value immediately before the webhook fires:<br><br>
+                Pre-fetch URL: <code>https://acme.thereforeonline.com/theservice/v0001/restun/GetDocumentIndexData</code><br>
+                Method: <code>POST</code><br>
+                Body: <code>{"DocNo": {{ doc_no }}}</code><br><br>
+                Then in the template body: <code>"LastChangeTimeISO8601": "{{ fetched.IndexData.LastChangeTimeISO8601 }}"</code>
               </div>
             </div>
 
-            <h3>CreateDocument flow — store a new document in Therefore</h3>
-            <p>Use this when Redactor should store the redacted output as a brand-new document in Therefore.</p>
+            <h3 id="therefore-validation">Pattern 2 — Validation workflow (human-in-the-loop)</h3>
+            <p>Use this pattern when a human must review and approve the detected redaction regions before the document is permanently modified. The flow:</p>
+            <ol>
+              <li>Therefore submits the document with <code>validation_mode=true</code> — detection runs but no redaction is applied yet</li>
+              <li>Redactor returns a <code>validation_url</code> immediately</li>
+              <li>Therefore stores the URL in a document field and enters a waiting state</li>
+              <li>A reviewer opens the URL, inspects highlighted regions, approves or rejects them, and adds any missed areas manually</li>
+              <li>On <strong>Save &amp; Apply</strong>, Redactor applies only the approved regions, calls <code>UpdateDocument</code>, and fires the <code>completion_callback_url</code> to release the Therefore workflow</li>
+            </ol>
 
-            <h3>Step 1 — Store credentials in the webhook template</h3>
-            <p>Go to <strong>Configuration → Webhook Templates</strong> and click <strong>Edit</strong> on <code>therefore_create_document</code>. In the <strong>HTTP Headers</strong> field, enter your Therefore credentials as a JSON object:</p>
-            <pre><code>{
-  "Authorization": "Basic &lt;base64(username:password)&gt;",
-  "TenantName": "yourtenantname",
-  "Content-Type": "application/json"
+            <div class="steps">
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Create a validation webhook template</strong>
+                <p>Duplicate <code>therefore_update_document</code> and name it <code>therefore_update_document_validated</code>. Edit its body to also set a logical "Redacted" field and, importantly, use a pre-fetch to get the current <code>LastChangeTimeISO8601</code> — essential because significant time may pass between submission and the reviewer approving the document:</p>
+
+                <p><strong>Pre-fetch settings (on the template):</strong></p>
+                <ul>
+                  <li>Pre-fetch URL: <code>https://acme.thereforeonline.com/theservice/v0001/restun/GetDocumentIndexData</code></li>
+                  <li>Method: <code>POST</code></li>
+                  <li>Body: <code>{"DocNo": {{ doc_no }}}</code></li>
+                </ul>
+
+                <p><strong>Template body:</strong></p>
+                <pre><code>{
+  "DocNo": {{ doc_no }},
+  "CheckInComments": "Redacted by Redactor — {{ filename }}",
+  "IndexData": {
+    "IndexDataItems": [
+      {
+        "LogicalIndexData": {
+          "FieldName": "Redacted",
+          "FieldNo": 0,
+          "DataValue": true
+        }
+      }
+    ],
+    "LastChangeTimeISO8601": "{{ fetched.IndexData.LastChangeTimeISO8601 }}",
+    "DoFillDependentFields": false
+  },
+  "StreamsToUpdate": [
+    {% if file_data %}
+    {
+      "StreamNo": {{ stream_no | default(0) }},
+      "FileName": "{{ file_name }}",
+      "FileDataBase64JSON": "{{ file_data }}"
+    }
+    {% endif %}
+  ]
 }</code></pre>
+                <p>Set the same Therefore credentials in the HTTP Headers as for the immediate template.</p>
+              </div></div>
+
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Configure the REST Call task with validation_mode</strong>
+                <p>The REST Call sends the document to Redactor with <code>validation_mode=true</code> and provides a <code>completion_callback_url</code> that Redactor will POST to after the reviewer clicks Save &amp; Apply. This callback is what releases the Therefore workflow from its waiting state.</p>
+                <table class="level-table">
+                  <thead><tr><th>Field name</th><th>Value</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>validation_mode</code></td><td><code>true</code></td></tr>
+                    <tr><td><code>output_mode</code></td><td><code>webhook</code></td></tr>
+                    <tr><td><code>webhook_url</code></td><td><code>https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument</code></td></tr>
+                    <tr><td><code>webhook_template</code></td><td><code>therefore_update_document_validated</code></td></tr>
+                    <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
+                    <tr><td><code>webhook_extra_doc_no</code></td><td><code>%DocNo%</code></td></tr>
+                    <tr><td><code>completion_callback_url</code></td><td>The Therefore endpoint that releases the workflow wait (see below)</td></tr>
+                  </tbody>
+                </table>
+                <p>REST Call task URL: <code>POST http://redactor-host:8080/api/v1/jobs/upload-sync</code></p>
+                <p>The response includes <code>validation_url</code> and <code>job_id</code>. Store <code>validation_url</code> in a Therefore document field (e.g. a URL or text field) so the reviewer can access it directly.</p>
+              </div></div>
+
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Set up the Therefore wait condition</strong>
+                <p>After the REST Call task, add a <strong>Wait</strong> step or condition in the Therefore workflow that pauses until the <code>completion_callback_url</code> is called. Typically this is done by:</p>
+                <ul>
+                  <li>Setting a logical field (e.g. <em>Pending Review</em>) to <code>true</code> immediately after the REST Call</li>
+                  <li>Waiting on that field returning to <code>false</code></li>
+                  <li>Configuring <code>completion_callback_url</code> to point to a Therefore REST endpoint that flips the field back to <code>false</code></li>
+                </ul>
+                <p>When the reviewer clicks <strong>Save &amp; Apply</strong> in the validation UI, Redactor fires the completion callback automatically.</p>
+              </div></div>
+            </div>
+
+            <p>Equivalent curl for testing the validation submission:</p>
+            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload-sync \
+  -F file=@document.pdf \
+  -F level=standard \
+  -F validation_mode=true \
+  -F output_mode=webhook \
+  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument \
+  -F webhook_template=therefore_update_document_validated \
+  -F webhook_include_file=true \
+  -F webhook_extra_doc_no=4521 \
+  -F completion_callback_url=https://acme.thereforeonline.com/theservice/v0001/restun/SaveDocumentIndexDataQuick</code></pre>
+
+            <p>The response (returned immediately, before any review):</p>
+            <pre><code>{
+  "status": "pending_validation",
+  "job_id": "a1b2c3d4-...",
+  "validation_url": "http://redactor-host:8080/validate.html?id=a1b2c3d4-...",
+  "region_count": 14
+}</code></pre>
+
+            <h3 id="therefore-skip-review">Pattern 3 — Skip review when all regions are auto-approved</h3>
+            <p>When the <strong>Auto-approve threshold</strong> is set in System Settings (default 0.85), any detected region with a Presidio confidence score at or above that threshold is automatically pre-approved in the validation UI. If all regions are pre-approved — and no manual regions need to be added — the reviewer step can be skipped entirely by calling <code>/apply</code> directly from the Therefore workflow.</p>
+
+            <div class="steps">
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Submit with validation_mode=true (same as Pattern 2)</strong>
+                <p>The response includes <code>job_id</code> and <code>region_count</code>.</p>
+              </div></div>
+
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Check for pending regions</strong>
+                <p>In a second REST Call task, fetch the region list and check whether any are still <code>pending</code> (i.e. not yet approved or rejected):</p>
+                <pre><code>GET http://redactor-host:8080/api/v1/jobs/{job_id}/regions</code></pre>
+                <p>The response is a list of region objects each with a <code>status</code> field: <code>auto_approved</code>, <code>pending</code>, <code>approved</code>, or <code>rejected</code>.</p>
+                <p>In the Therefore workflow, use a condition: if the list contains any item with <code>status = "pending"</code>, route to the human review path (Pattern 2). Otherwise, continue to the auto-apply step.</p>
+              </div></div>
+
+              <div class="step"><div class="step-num"></div><div class="step-content">
+                <strong>Auto-apply approved regions</strong>
+                <p>If no pending regions exist, call the apply endpoint directly — no human review needed:</p>
+                <pre><code>POST http://redactor-host:8080/api/v1/jobs/{job_id}/apply</code></pre>
+                <p>This applies all <code>approved</code> and <code>auto_approved</code> regions, fires the <code>webhook_url</code> (UpdateDocument), and fires the <code>completion_callback_url</code> — exactly the same as when a reviewer clicks Save &amp; Apply.</p>
+              </div></div>
+            </div>
 
             <div class="callout callout-tip">
               <span class="callout-icon">💡</span>
               <div>
-                To generate the Basic auth value: <code>echo -n "username:password" | base64</code><br>
-                <code>TenantName</code> is only required for Therefore Online (<code>*.thereforeonline.com</code>). Set it to your subdomain prefix — e.g. for <code>acme.thereforeonline.com</code>, use <code>acme</code>.
+                <strong>Tuning auto-approve threshold:</strong> Set it higher (e.g. 0.95) to require more human review — only very high-confidence matches are auto-approved. Set it lower (e.g. 0.7) to reduce reviewer workload. All detected regions are always stored; the threshold only controls the initial <code>status</code> assigned to each one.
               </div>
             </div>
 
-            <h3>Step 2 — Update the template body for your category</h3>
-            <p>The default template body covers the most common index fields. Edit it to match your Therefore category's field definitions. Key points:</p>
-            <ul>
-              <li>Set <code>FieldNo</code> values to match your category. Look them up with <code>POST /restun/GetCategoryInfo {"CategoryNo": N}</code>.</li>
-              <li>Use <code>{{ completed_at[:10] }}</code> for date fields — Therefore's <code>DateIndexData</code> expects <code>yyyy-MM-dd</code> format only.</li>
-              <li>Use <code>{{ category_no | default(57) }}</code> for the category number so it can be overridden per-job.</li>
-            </ul>
+            <h3>CreateDocument flow — store a new document in Therefore</h3>
+            <p>Use this when Redactor should create a brand-new document in Therefore rather than updating an existing one.</p>
 
-            <pre><code>{
-  "CategoryNo": {{ category_no | default(57) }},
-  "CheckInComments": "Redacted by Redactor — {{ filename }}",
-  "IndexDataItems": [
-    {
-      "StringIndexData": {
-        "FieldName": "Document_Name",
-        "FieldNo": 0,
-        "DataValue": "{{ stem }}"
-      }
-    },
-    {
-      "DateIndexData": {
-        "FieldName": "Redaction_Date",
-        "FieldNo": 0,
-        "DataISO8601Value": "{{ completed_at[:10] }}"
-      }
-    }
-  ],
-  "Streams": [
-    {% if file_data %}
-    {
-      "FileName": "{{ file_name }}",
-      "FileDataBase64JSON": "{{ file_data }}",
-      "NewStreamInsertMode": 0
-    }
-    {% endif %}
-  ],
-  "DoFillDependentFields": true
-}</code></pre>
-
-            <h3>Step 3 — Configure Therefore's outgoing REST Request</h3>
-            <p>In Therefore, create a REST Request workflow action targeting Redactor's upload endpoint. In the <strong>Body</strong> tab, add the following fields. Use prefixed fields for headers and extra vars to avoid JSON-mangling:</p>
-
+            <p>Store credentials in <code>therefore_create_document</code>'s HTTP Headers (same as UpdateDocument), then configure the REST Request in Therefore:</p>
             <table class="level-table">
               <thead><tr><th>Field name</th><th>Value</th></tr></thead>
               <tbody>
                 <tr><td><code>level</code></td><td><code>standard</code></td></tr>
                 <tr><td><code>output_mode</code></td><td><code>webhook</code></td></tr>
-                <tr><td><code>webhook_url</code></td><td>Your Therefore CreateDocument URL, e.g. <code>https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument</code></td></tr>
+                <tr><td><code>webhook_url</code></td><td><code>https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument</code></td></tr>
                 <tr><td><code>webhook_template</code></td><td><code>therefore_create_document</code></td></tr>
                 <tr><td><code>webhook_include_file</code></td><td><code>true</code></td></tr>
-                <tr><td><code>webhook_extra_category_no</code></td><td><code>57</code> (optional — omit to use the template's default)</td></tr>
+                <tr><td><code>webhook_extra_category_no</code></td><td><code>57</code> (optional)</td></tr>
               </tbody>
             </table>
-
-            <div class="callout callout-tip">
-              <span class="callout-icon">💡</span>
-              <div><strong>Multiple categories:</strong> Duplicate the template for each category and change the default category number in each copy, or pass <code>webhook_extra_category_no=N</code> per-job from Therefore to use a single template across multiple categories.</div>
-            </div>
-
-            <p>The Therefore REST Request URL should point to Redactor's upload endpoint:</p>
             <pre><code>POST http://redactor-host:8080/api/v1/jobs/upload</code></pre>
-
-            <p>Equivalent curl for testing the full flow:</p>
-            <pre><code>curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
-  -F file=@invoice.pdf \
-  -F level=standard \
-  -F output_mode=webhook \
-  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument \
-  -F webhook_template=therefore_create_document \
-  -F webhook_include_file=true \
-  -F webhook_extra_category_no=57</code></pre>
-
-            <h3>Adapter approach (advanced)</h3>
-            <p>Use an adapter service instead of the direct template approach when you need <code>PreprocessIndexData</code> (auto-numbering, calculated fields, mandatory keyword lookups) before calling <code>CreateDocument</code>. The adapter receives Redactor's standard webhook payload and handles the Therefore API calls itself.</p>
-
-            <pre><code>import hashlib, hmac, os, requests
-from fastapi import FastAPI, Request, HTTPException
-
-app = FastAPI()
-
-REDACTOR_SECRET  = os.environ["REDACTOR_WEBHOOK_SECRET"]
-THEREFORE_BASE   = os.environ["THEREFORE_BASE_URL"]
-CATEGORY_NO      = int(os.environ["THEREFORE_CATEGORY_NO"])
-THEREFORE_TENANT = os.environ.get("THEREFORE_TENANT", "")
-
-
-def session():
-    s = requests.Session()
-    s.auth = (os.environ["THEREFORE_USERNAME"], os.environ["THEREFORE_PASSWORD"])
-    s.headers["Content-Type"] = "application/json"
-    if THEREFORE_TENANT:
-        s.headers["TenantName"] = THEREFORE_TENANT
-    return s
-
-
-@app.post("/redactor-callback")
-async def callback(request: Request):
-    body = await request.body()
-    sig = request.headers.get("X-Redactor-Signature", "")
-    expected = hmac.new(REDACTOR_SECRET.encode(), body, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, sig.removeprefix("sha256=")):
-        raise HTTPException(401)
-
-    data = await request.json()
-    if data.get("status") != "completed" or not data.get("file_data"):
-        return {"ok": True}
-
-    s = session()
-    result = s.post(f"{THEREFORE_BASE}/CreateDocument", json={
-        "CategoryNo": CATEGORY_NO,
-        "IndexDataItems": [
-            {"StringIndexData": {"FieldNo": 101, "DataValue": data["filename"]}},
-        ],
-        "Streams": [{
-            "StreamNo": 0,
-            "FileName": data["file_name"],
-            "FileData": data["file_data"],
-        }],
-    }, timeout=60).json()
-    return {"ok": True, "doc_no": result.get("DocNo")}</code></pre>
+            <p>Use <code>/upload</code> (async) rather than <code>/upload-sync</code> here — the workflow doesn't need to wait for Therefore to acknowledge the new document before continuing.</p>
 
             <h3>Notes</h3>
             <ul>
-              <li><strong>Prefixed fields vs JSON</strong> — Therefore's REST Call task mangles JSON string values in Body fields. Use <code>webhook_header_&lt;Name&gt;</code> and <code>webhook_extra_&lt;key&gt;</code> prefixed fields to pass headers and template variables as plain text. Both approaches work; prefix fields take precedence when both supply the same key.</li>
-              <li><strong>Sync vs async</strong> — use <code>/upload-sync</code> when the Therefore workflow must wait for completion (e.g. UpdateDocument) and <code>/upload</code> when it can continue immediately (e.g. fire-and-forget archival).</li>
-              <li><strong>Keyword fields</strong> — if the category has mandatory keyword (dropdown) fields, resolve their values to <code>KeywordNo</code> integers using <code>GetKeywordsByFieldNo</code> before calling <code>CreateDocument</code>. This typically requires the adapter approach.</li>
-              <li><strong>Field numbers</strong> — <code>FieldNo</code> must match your Therefore category definition exactly. Use <code>POST /restun/GetCategoryInfo {"CategoryNo": N, "IsAccessMaskNeeded": false}</code> to list field numbers.</li>
-              <li><strong>Large files</strong> — base64 encoding adds ~33% to file size. For documents over ~20 MB, consider <code>webhook_include_file=false</code> and fetching via the <code>download_url</code> in the standard payload.</li>
-              <li><strong>TenantName</strong> — required for Therefore Online only. Omit for on-premises installations.</li>
-              <li><strong>Testing</strong> — submit a test job via the Upload page with <code>output_mode=webhook</code> and check the Docker logs: <code>docker compose logs -f backend</code>. The full request body sent to Therefore is logged (with base64 file data replaced by a size marker).</li>
+              <li><strong>Prefixed fields vs JSON</strong> — use <code>webhook_header_&lt;Name&gt;</code> and <code>webhook_extra_&lt;key&gt;</code> prefixed fields in Therefore's REST Call task body. Both avoid JSON mangling. Prefix fields take precedence when the same key is supplied in both formats.</li>
+              <li><strong>Sync vs async</strong> — use <code>/upload-sync</code> when Therefore must wait for the full redact+deliver round-trip (UpdateDocument). Use <code>/upload</code> for fire-and-forget delivery (CreateDocument, archival).</li>
+              <li><strong>Concurrency token</strong> — <code>UpdateDocument</code> requires a current <code>LastChangeTimeISO8601</code>. Always configure a Pre-fetch URL on the webhook template so it is fetched immediately before the webhook fires, not at job submission time.</li>
+              <li><strong>Field numbers</strong> — <code>FieldNo</code> in index data must match your Therefore category. Use <code>POST /restun/GetCategoryInfo {"CategoryNo": N, "IsAccessMaskNeeded": false}</code> to list them.</li>
+              <li><strong>Keyword fields</strong> — if the category has mandatory keyword (dropdown) fields, values must be resolved to <code>KeywordNo</code> integers via <code>GetKeywordsByFieldNo</code>. This typically requires an adapter service rather than a direct template call.</li>
+              <li><strong>Large files</strong> — base64 adds ~33% to file size. For documents over ~20 MB, consider <code>webhook_include_file=false</code> and fetching via the <code>download_url</code> in the standard payload.</li>
+              <li><strong>TenantName header</strong> — required for Therefore Online only. Omit for on-premises installations.</li>
+              <li><strong>Logical field data type</strong> — use <code>LogicalIndexData</code> with <code>"DataValue": true</code> (JSON boolean, no quotes) to set a yes/no field.</li>
             </ul>
           </section>
 

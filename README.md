@@ -7,10 +7,13 @@ A self-hosted document redaction service that automatically detects and blacks o
 ## Features
 
 - **Multi-format input** — PDF (text-layer and scanned/image-based), PNG, JPG, TIFF
-- **Dual ingestion modes** — REST API upload or automatic folder polling
+- **Dual ingestion modes** — REST API upload or automatic folder polling across multiple watched folders, each with its own profile and output path
 - **Dual output modes** — save to output directory or deliver via signed webhook
-- **Four redaction levels** — Minimal → Standard → Aggressive → Maximum, plus fully custom entity selection
-- **Custom profiles** — save named entity sets for reuse across jobs
+- **Four built-in redaction levels** — Minimal → Standard → Aggressive → Maximum, plus fully custom entity selection
+- **Redaction profiles** — save named entity sets with per-profile detection strategy for reuse across watched folders and API jobs
+- **Custom entities** — add pattern (regex) and deny-list recognisers; descriptions feed directly into LLM detection prompts
+- **LLM detection** — optional Ollama-backed detection for contextual PII in free-form text; can be combined with Presidio
+- **Human-in-the-loop validation** — submit with `validation_mode=true` to get a review URL before any redaction is applied; reviewer approves/rejects regions, draws additional areas, then triggers final redaction
 - **Forensically sound PDF redaction** — removes text from the PDF content stream; extracted text cannot be recovered by copy, select, or forensic tools
 - **OCR redaction** — detects and redacts PII in scanned documents and images via Tesseract
 - **Webhook templates** — Jinja2 templates that shape the exact JSON payload posted to any endpoint; credentials stored in the template, not per-request
@@ -46,6 +49,8 @@ Redactor uses **pattern matching and statistical NLP** — not a generative AI m
 | **PyMuPDF** | Text extraction and PDF manipulation |
 
 This means detection is fast and deterministic. It can miss PII that doesn't match known patterns, and may occasionally false-positive on ambiguous text. It does not require internet access or an API key.
+
+Optionally, an **LLM detection layer** can be enabled via Ollama. When configured, the system can run in `presidio`, `llm`, or `both` mode — globally or overridden per redaction profile. LLM detection uses a local model (no data leaves your server) and is particularly effective for contextual PII in free-form prose and for custom entity types defined with a plain-English description.
 
 ---
 
@@ -393,9 +398,9 @@ Use the **Duplicate** button in Configuration → Webhook Templates to copy a te
 
 ---
 
-## Custom Redaction Profiles
+## Redaction Profiles
 
-Profiles let you save a named set of entity types for repeated use.
+Profiles save a named set of entity types plus an optional detection strategy override. The four built-in redaction levels (minimal, standard, aggressive, maximum) appear automatically as profiles and can be duplicated and customised.
 
 **Create via UI:** Configuration → Redaction Profiles → New Profile
 
@@ -406,9 +411,12 @@ curl -X POST http://localhost:8080/api/v1/config/profiles \
   -d '{
     "name": "GDPR Essentials",
     "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "LOCATION"],
-    "description": "Core GDPR personal data fields"
+    "description": "Core GDPR personal data fields",
+    "strategy": "both"
   }'
 ```
+
+The optional `strategy` field (`"presidio"`, `"llm"`, or `"both"`) overrides the system detection strategy for jobs using this profile. If the system strategy doesn't support the requested mode (e.g. `"llm"` requested but system is set to `"presidio"` only), the job falls back to the system strategy and logs a warning. The effective strategy used is stored on every job and visible in the job detail view.
 
 **Use a profile on upload:**
 ```bash
@@ -419,28 +427,54 @@ curl -X POST http://localhost:8080/api/v1/jobs/upload \
 
 ---
 
+## Custom Entities
+
+Add your own entity types via **Configuration → Entities → Add Custom Recogniser**.
+
+### Pattern recogniser (regex)
+Use when the value has a predictable format:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/config/recognizers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Employee ID",
+    "entity_type": "EMPLOYEE_ID",
+    "type": "pattern",
+    "patterns": [{"name": "emp-id", "regex": "EMP-\\d{5}", "score": 0.85}],
+    "context": ["employee", "staff", "id"],
+    "description": "An internal employee identifier in the format EMP-NNNNN"
+  }'
+```
+
+### Deny-list recogniser
+Use when the values are known in advance:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/config/recognizers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Internal Project Names",
+    "entity_type": "PROJECT_NAME",
+    "type": "deny_list",
+    "deny_list": ["Project Phoenix", "Operation Clearwater"],
+    "description": "Internal project codenames that must not appear in externally shared documents"
+  }'
+```
+
+The `description` field is included in the LLM prompt when using the `llm` or `both` detection strategy, allowing the model to find instances that don't match the regex exactly (e.g. contextual references). Tick the custom entity type in any profile to include it in detection.
+
+---
+
 ## Therefore™ Integration
 
-Redactor can post directly to Therefore's REST API on job completion using a webhook template — no adapter service required.
+Redactor posts directly to Therefore's REST API using Jinja2 webhook templates — no adapter service required. Three patterns cover the common cases.
 
-Three built-in templates cover the common cases: `therefore_create_document`, `therefore_update_document`, and `therefore_update_document2`.
+### Pattern 1 — Immediate update (no validation)
 
-### CreateDocument flow (new document from Therefore)
+The simplest flow: Therefore submits a document, Redactor redacts it, and immediately calls `UpdateDocument` to replace the stream. Use `/upload-sync` so the REST Call task blocks until the full round-trip completes.
 
-See [Step 1–3](#step-1--store-credentials-in-the-webhook-template) below for the full setup. The short version:
-
-1. Store credentials in the `therefore_create_document` template's HTTP Headers
-2. In Therefore, add a REST Call task → `POST /upload` with `output_mode=webhook`, `webhook_template=therefore_create_document`, `webhook_include_file=true`
-
-### UpdateDocument flow (redact an existing Therefore document)
-
-Use this when the document already exists in Therefore and you want to replace its stream with the redacted version — for example, triggered from a review workflow on an existing document.
-
-**Template to use:** `therefore_update_document`
-
-The template expects two variables: `doc_no` (the Therefore document number) and optionally `stream_no` (defaults to `0`). It calls `UpdateDocument` with the redacted file replacing the specified stream.
-
-**Therefore REST Call task fields** — because Therefore's REST Call task mangles JSON strings, pass credentials and variables as individual prefixed fields rather than JSON objects:
+**Therefore REST Call task fields:**
 
 | Field | Value |
 |---|---|
@@ -448,109 +482,130 @@ The template expects two variables: `doc_no` (the Therefore document number) and
 | `webhook_url` | `https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument` |
 | `webhook_template` | `therefore_update_document` |
 | `webhook_include_file` | `true` |
-| `webhook_header_Authorization` | `Basic <base64(user:pass)>` |
-| `webhook_header_TenantName` | `acme` |
-| `webhook_header_Content-Type` | `application/json` |
-| `webhook_extra_doc_no` | `%DocNo%` (Therefore workflow variable) |
+| `webhook_extra_doc_no` | `%DocNo%` |
 | `webhook_extra_stream_no` | `0` |
+| `level` | `standard` |
 
-Use `/upload-sync` as the endpoint so the REST Call task blocks until redaction and delivery are complete before the workflow continues.
-
-**Equivalent curl for testing:**
-```bash
-curl -X POST http://redactor-host:8080/api/v1/jobs/upload-sync \
-  -F file=@document.pdf \
-  -F level=standard \
-  -F output_mode=webhook \
-  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument \
-  -F webhook_template=therefore_update_document \
-  -F webhook_include_file=true \
-  -F webhook_header_Authorization='Basic dXNlcjpwYXNz' \
-  -F webhook_header_TenantName=acme \
-  -F 'webhook_header_Content-Type=application/json' \
-  -F webhook_extra_doc_no=4521 \
-  -F webhook_extra_stream_no=0
-```
-
-**Type note:** `doc_no` arrives as a string but the `therefore_update_document` template uses `"DocNo": {{ doc_no }}` (no surrounding quotes), so `"4521"` renders as the integer `4521` in the JSON body — correct for Therefore's API.
-
-### Step 1 — Store credentials in the webhook template
-
-In **Configuration → Webhook Templates**, edit `therefore_create_document` and add your credentials in the **HTTP Headers** field:
-
+Store credentials in the template's HTTP Headers (not in the REST Call task):
 ```json
 {
   "Authorization": "Basic <base64(username:password)>",
-  "TenantName": "yourtenantname",
+  "TenantName": "acme",
   "Content-Type": "application/json"
 }
 ```
 
-`TenantName` is only required for Therefore Online (`*.thereforeonline.com`). Set it to your subdomain prefix (e.g. `acme` for `acme.thereforeonline.com`).
+Configure a **Pre-fetch URL** on the template to fetch the current `LastChangeTimeISO8601` immediately before firing — required because Therefore rejects stale concurrency tokens:
+- Pre-fetch URL: `https://acme.thereforeonline.com/theservice/v0001/restun/GetDocumentIndexData`
+- Method: `POST`, Body: `{"DocNo": {{ doc_no }}}`
+- In the template body: `"LastChangeTimeISO8601": "{{ fetched.IndexData.LastChangeTimeISO8601 }}"`
 
-The default template body posts to `CreateDocument` with `CategoryNo`, index fields, and the redacted file as a base64 stream. Edit the template body to match your category's field definitions.
+### Pattern 2 — Validation workflow (human-in-the-loop)
 
-**Date fields** — Therefore's `DateIndexData` expects `yyyy-MM-dd`. Use `{{ completed_at[:10] }}`:
+Submit with `validation_mode=true` — detection runs but no redaction is applied. Redactor returns a `validation_url` immediately. A reviewer opens the URL, approves/rejects regions, then clicks Save & Apply to trigger final redaction and webhook delivery.
 
-```json
-{
-  "DateIndexData": {
-    "FieldName": "Redaction_Date",
-    "FieldNo": 0,
-    "DataISO8601Value": "{{ completed_at[:10] }}"
-  }
-}
-```
-
-### Step 2 — Configure Therefore's outgoing REST Request
-
-In Therefore, set up a REST Request action to POST documents to Redactor. Pass the required fields using Therefore's Body tab:
+**Therefore REST Call task fields:**
 
 | Field | Value |
 |---|---|
-| `level` | `standard` |
+| `validation_mode` | `true` |
 | `output_mode` | `webhook` |
-| `webhook_url` | `https://your-therefore-url/theservice/v0001/restun/CreateDocument` |
-| `webhook_template` | `therefore_create_document` |
+| `webhook_url` | `https://acme.thereforeonline.com/theservice/v0001/restun/UpdateDocument` |
+| `webhook_template` | `therefore_update_document_validated` |
 | `webhook_include_file` | `true` |
-| `webhook_extra` | `{"category_no": 57}` (optional — overrides the default in the template) |
+| `webhook_extra_doc_no` | `%DocNo%` |
+| `completion_callback_url` | Your Therefore endpoint to release the workflow wait |
 
-**Equivalent curl for testing:**
+**Validation template body** (duplicate `therefore_update_document` and edit):
+
+```jinja2
+{
+  "DocNo": {{ doc_no }},
+  "CheckInComments": "Redacted by Redactor — {{ filename }}",
+  "IndexData": {
+    "IndexDataItems": [
+      {
+        "LogicalIndexData": {
+          "FieldName": "Redacted",
+          "FieldNo": 0,
+          "DataValue": true
+        }
+      }
+    ],
+    "LastChangeTimeISO8601": "{{ fetched.IndexData.LastChangeTimeISO8601 }}",
+    "DoFillDependentFields": false
+  },
+  "StreamsToUpdate": [
+    {% if file_data %}
+    {
+      "StreamNo": {{ stream_no | default(0) }},
+      "FileName": "{{ file_name }}",
+      "FileDataBase64JSON": "{{ file_data }}"
+    }
+    {% endif %}
+  ]
+}
+```
+
+Configure a **Pre-fetch URL** on this template too (same as Pattern 1) — the concurrency token is especially critical here because hours may pass between submission and the reviewer approving the document.
+
+**Response from `/upload-sync` with `validation_mode=true`:**
+```json
+{
+  "status": "pending_validation",
+  "job_id": "a1b2c3d4-...",
+  "validation_url": "http://redactor-host:8080/validate.html?id=a1b2c3d4-...",
+  "region_count": 14
+}
+```
+
+Store `validation_url` in a Therefore document field so the reviewer can access it.
+
+### Pattern 3 — Skip review when all regions are auto-approved
+
+Set **Auto-approve threshold** in System Settings (default 0.85). Detected regions with a Presidio confidence score at or above the threshold are automatically pre-approved. To skip human review when this covers everything:
+
+1. Submit with `validation_mode=true` (same as Pattern 2), store `job_id`
+2. `GET /api/v1/jobs/{job_id}/regions` — check whether any region has `status = "pending"`
+3. If none pending → `POST /api/v1/jobs/{job_id}/apply` to apply approved regions, fire webhook, and trigger the completion callback
+4. If some pending → route to human review using the `validation_url`
+
 ```bash
-curl -X POST http://redactor-host:8080/api/v1/jobs/upload \
-  -F file=@invoice.pdf \
-  -F level=standard \
-  -F output_mode=webhook \
-  -F webhook_url=https://acme.thereforeonline.com/theservice/v0001/restun/CreateDocument \
-  -F webhook_template=therefore_create_document \
-  -F webhook_include_file=true \
-  -F 'webhook_extra={"category_no": 57}'
+# Step 2 — check for pending regions
+curl http://redactor-host:8080/api/v1/jobs/{job_id}/regions
+
+# Step 3 — skip review and apply directly
+curl -X POST http://redactor-host:8080/api/v1/jobs/{job_id}/apply
 ```
 
 ### Notes
 
-- **Field numbers** — `FieldNo` in the template must match your Therefore category. Look them up with `POST /restun/GetCategoryInfo {"CategoryNo": N}`.
-- **Multiple categories** — duplicate the template for each category and set a different `category_no` default, or pass `webhook_extra={"category_no": N}` per-job.
-- **Large files** — base64 encoding adds ~33% overhead. For documents over ~20 MB consider `webhook_include_file=false` and fetching the file from the `download_url` in the standard payload.
-- **Keyword fields** — if your category has mandatory keyword (dropdown) fields requiring `PreprocessIndexData` or `GetKeywordsByFieldNo`, use an adapter service instead of the direct template approach. See the guide for an example adapter implementation.
-
+- **Prefixed fields** — use `webhook_header_<Name>` and `webhook_extra_<key>` in Therefore's REST Call task body to avoid JSON mangling
+- **Sync vs async** — use `/upload-sync` when Therefore must wait for completion; `/upload` for fire-and-forget
+- **Concurrency token** — always configure Pre-fetch URL on UpdateDocument templates; never rely on `completed_at`
+- **Logical field** — use `LogicalIndexData` with `"DataValue": true` (JSON boolean, no quotes)
+- **Field numbers** — look up `FieldNo` with `POST /restun/GetCategoryInfo {"CategoryNo": N, "IsAccessMaskNeeded": false}`
+- **TenantName** — required for Therefore Online only; omit for on-premises
 ---
 
 ## Folder Polling
 
-Drop files into the input directory and they are automatically picked up and processed:
+Redactor can watch multiple input folders, each with its own redaction profile and output path. Configure watched folders in **Configuration → Watched Folders**.
+
+Drop files into any watched folder and they are automatically picked up:
 
 ```bash
 # Via docker cp (named volume)
-docker cp document.pdf redactor-backend:/data/input/
+docker cp document.pdf redactor-backend:/data/input/hr/
 
 # Via host-mounted volume
-cp document.pdf /your/host/path/input/
+cp document.pdf /your/host/path/input/hr/
 ```
 
-- Files are detected by scanning the directory at the configured poll interval
-- Each file's SHA-256 hash is recorded so the same file is never processed twice
-- Polled files use the system default redaction level and output mode
+- Each folder can be assigned a different redaction profile (e.g. HR, Finance, Legal) and a separate output directory
+- Files are detected by scanning at the configured poll interval; each file's SHA-256 hash is recorded so the same file is never processed twice
+- macOS resource fork files (`._filename`) and other hidden dot-files are silently deleted and skipped
+- Polled files use the profile and output path configured for their folder; folders with no profile use the system default level
 
 ---
 
