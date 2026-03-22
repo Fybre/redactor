@@ -288,9 +288,10 @@ async function _populateStrategyDropdown(currentStrategy) {
 
 function openProfileModal(name = null, existing = null) {
   editingProfile = name;
+  document.getElementById('modal-title').textContent = name ? 'Edit Profile' : 'New Profile';
   document.getElementById('modal-profile-name').value = name || '';
   document.getElementById('modal-profile-desc').value = existing?.description || '';
-  document.getElementById('modal-profile-name').disabled = !!name;
+  document.getElementById('modal-profile-name').disabled = false;
   _populateStrategyDropdown(existing?.strategy || '');
 
   const grid = document.getElementById('modal-entity-grid');
@@ -369,8 +370,8 @@ async function deleteProfile(name) {
   try {
     await api.delete(`/config/profiles/${name}`);
     showToast('Profile deleted', 'success');
-    loadProfiles();
-  } catch (e) { console.error(e); }
+    await loadProfiles();
+  } catch (e) { showToast('Delete failed', 'error'); console.error(e); }
 }
 
 async function restoreDefaultProfiles() {
@@ -567,9 +568,9 @@ function renderWatchedFolders(folders) {
         <td><span class="badge ${f.enabled ? 'badge-completed' : 'badge-cancelled'}">${f.enabled ? 'enabled' : 'disabled'}</span></td>
         <td>
           <div style="display:flex;gap:6px">
+            <button onclick="editWatchedFolder('${f.id}')" class="btn btn-ghost btn-sm">Edit</button>
             ${f.id !== 'default' ? `<button onclick="toggleWatchedFolder('${f.id}',${!f.enabled})" class="btn btn-ghost btn-sm">${f.enabled ? 'Disable' : 'Enable'}</button>` : ''}
             ${f.id !== 'default' ? `<button onclick="deleteWatchedFolder('${f.id}')" class="btn btn-danger btn-sm">Delete</button>` : ''}
-            ${f.id === 'default' ? '<span style="font-size:11px;color:var(--muted)">default</span>' : ''}
           </div>
         </td>
       </tr>`).join('') + `</tbody></table>`;
@@ -610,6 +611,70 @@ async function deleteWatchedFolder(id) {
     showToast('Folder removed', 'success');
     loadWatchedFolders();
   } catch (e) { console.error(e); }
+}
+
+let _editingFolderId = null;
+
+async function editWatchedFolder(id) {
+  try {
+    const [folders, profiles] = await Promise.all([
+      api.get('/config/watched-folders'),
+      api.get('/config/profiles'),
+    ]);
+    const f = folders.find(f => f.id === id);
+    if (!f) return;
+    _editingFolderId = id;
+    document.getElementById('wf-edit-name').value = f.name || '';
+    document.getElementById('wf-edit-path').value = f.path || '';
+    document.getElementById('wf-edit-output-path').value = f.output_path || '';
+    document.getElementById('wf-edit-enabled').checked = f.enabled !== false;
+
+    // Populate profile dropdown (same grouping as add form)
+    const sel = document.getElementById('wf-edit-profile');
+    sel.innerHTML = '<option value="">— Default —</option>';
+    const builtins = [], custom = [];
+    Object.entries(profiles).forEach(([name, p]) => {
+      (p.builtin ? builtins : custom).push(name);
+    });
+    if (builtins.length) {
+      const g = document.createElement('optgroup'); g.label = 'Built-in levels';
+      builtins.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; g.appendChild(o); });
+      sel.appendChild(g);
+    }
+    if (custom.length) {
+      const g = document.createElement('optgroup'); g.label = 'Custom profiles';
+      custom.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; g.appendChild(o); });
+      sel.appendChild(g);
+    }
+    sel.value = f.profile || '';
+
+    document.getElementById('folder-modal').classList.add('open');
+  } catch (e) { console.error(e); }
+}
+
+function closeFolderModal() {
+  document.getElementById('folder-modal').classList.remove('open');
+  _editingFolderId = null;
+}
+
+async function saveFolderEdit() {
+  const name = document.getElementById('wf-edit-name').value.trim();
+  const path = document.getElementById('wf-edit-path').value.trim();
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!path) { showToast('Input path is required', 'error'); return; }
+  const payload = {
+    name,
+    path,
+    output_path: document.getElementById('wf-edit-output-path').value.trim(),
+    profile: document.getElementById('wf-edit-profile').value || null,
+    enabled: document.getElementById('wf-edit-enabled').checked,
+  };
+  try {
+    await api.put(`/config/watched-folders/${_editingFolderId}`, payload);
+    showToast('Folder updated', 'success');
+    closeFolderModal();
+    loadWatchedFolders();
+  } catch (e) { showToast('Save failed', 'error'); console.error(e); }
 }
 
 async function addWebhook() {

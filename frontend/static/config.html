@@ -456,6 +456,41 @@
     </div>
   </div>
 
+  <!-- Watched Folder Edit Modal -->
+  <div class="modal-backdrop" id="folder-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Watched Folder</h3>
+        <button class="modal-close" onclick="closeFolderModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" id="wf-edit-name" placeholder="e.g. HR Documents">
+      </div>
+      <div class="form-group">
+        <label>Input Path *</label>
+        <input type="text" id="wf-edit-path" placeholder="/data/input/hr">
+      </div>
+      <div class="form-group">
+        <label>Output Path <span style="font-weight:400;color:var(--muted)">(blank = default)</span></label>
+        <input type="text" id="wf-edit-output-path" placeholder="/data/output/hr">
+      </div>
+      <div class="form-group">
+        <label>Redaction Profile <span style="font-weight:400;color:var(--muted)">(blank = default level)</span></label>
+        <select id="wf-edit-profile"><option value="">— Default —</option></select>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="wf-edit-enabled"> Enabled
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button onclick="closeFolderModal()" class="btn btn-ghost">Cancel</button>
+        <button onclick="saveFolderEdit()" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Template Modal -->
   <div class="modal-backdrop" id="template-modal">
     <div class="modal" style="max-width:720px;width:90vw">

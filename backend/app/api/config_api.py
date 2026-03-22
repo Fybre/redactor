@@ -159,10 +159,15 @@ async def update_profile(name: str, profile: ProfileCreate):
     entry = {"entities": profile.entities, "description": profile.description or ""}
     if profile.strategy:
         entry["strategy"] = profile.strategy
-    profiles[name] = entry
+    new_name = profile.name.strip() if profile.name and profile.name.strip() != name else name
+    if new_name != name:
+        if new_name in profiles:
+            raise HTTPException(status_code=409, detail=f"Profile '{new_name}' already exists")
+        del profiles[name]
+    profiles[new_name] = entry
     config["profiles"] = profiles
     save_runtime_config(config)
-    return {"status": "updated", "name": name}
+    return {"status": "updated", "name": new_name}
 
 
 @router.post("/profiles/{name}/duplicate")
