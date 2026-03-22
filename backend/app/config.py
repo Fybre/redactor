@@ -9,7 +9,7 @@ from app.core.redaction_levels import ENTITY_LEVELS, LEVEL_DESCRIPTIONS
 
 class Settings(BaseSettings):
     # Paths
-    database_url: str = "sqlite+aiosqlite:////data/redactor.db"
+    database_url: str = "sqlite+aiosqlite:////config/redactor.db"
     input_dir: str = "/data/input"
     output_dir: str = "/data/output"
     originals_dir: str = "/data/originals"
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Runtime config stored in a JSON file so the web UI can update it without restart
-_RUNTIME_CONFIG_PATH = Path("/data/runtime_config.json")
+_RUNTIME_CONFIG_PATH = Path("/config/runtime_config.json")
 
 _DEFAULT_RUNTIME_CONFIG = {
     "folder_polling_enabled": settings.folder_polling_enabled,

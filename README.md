@@ -70,13 +70,11 @@ Optionally, an **LLM detection layer** can be enabled via Ollama. When configure
 │           │                └──────────┬───────────┘  │
 └───────────┼───────────────────────────┼──────────────┘
             │                           │
-        Browser                  /data volume
-                                  ├── input/
-                                  ├── output/
-                                  ├── originals/
-                                  ├── temp/
-                                  ├── redactor.db
-                                  └── runtime_config.json
+        Browser           /data volume (shareable)    /config volume (server-only)
+                            ├── input/                  ├── redactor.db
+                            ├── output/                 └── runtime_config.json
+                            ├── originals/
+                            └── temp/
 ```
 
 **Backend** — FastAPI + two background asyncio tasks:
@@ -151,17 +149,16 @@ Each page is assessed individually — pages with a real text layer use pipeline
 
 Runtime settings can also be changed live via the web UI without restarting the container.
 
-### Data Directories
+### Volumes
 
-All directories live inside the `redactor-data` Docker volume, mounted at `/data`:
+Two Docker volumes are used, keeping shareable file data separate from server configuration:
 
-| Path | Purpose |
-|---|---|
-| `/data/input/` | Drop files here for automatic processing |
-| `/data/output/` | Redacted output files |
-| `/data/originals/` | Retained originals (if enabled) |
-| `/data/redactor.db` | SQLite job database |
-| `/data/runtime_config.json` | Live configuration (edited via web UI) |
+| Volume | Mount | Contents |
+|---|---|---|
+| `redactor-data` | `/data` | `input/`, `output/`, `originals/`, `temp/` — document files |
+| `redactor-config` | `/config` | `redactor.db`, `runtime_config.json` — database and settings |
+
+This separation means `/data` can be safely shared over a network (e.g. as an SMB or NFS share) without exposing the database or configuration file.
 
 To access files from the host:
 
@@ -169,11 +166,12 @@ To access files from the host:
 docker run --rm -v redactor_redactor-data:/data alpine ls /data/output
 ```
 
-Or mount a host directory instead of the named volume by editing `docker-compose.yml`:
+To bind-mount host directories instead of named volumes:
 
 ```yaml
 volumes:
-  - /your/host/path:/data
+  - /srv/redactor/data:/data
+  - /srv/redactor/config:/config
 ```
 
 ---
@@ -611,7 +609,7 @@ cp document.pdf /your/host/path/input/hr/
 
 ## Production Considerations
 
-**Bind-mount a host volume** so data persists independently of Docker:
+**Bind-mount host directories** so data persists independently of Docker and the data folder can be shared separately from config:
 ```yaml
 # docker-compose.yml
 volumes:
@@ -621,6 +619,12 @@ volumes:
       type: none
       o: bind
       device: /srv/redactor/data
+  redactor-config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /srv/redactor/config
 ```
 
 **Add authentication** — the API and UI have no authentication by default. Put nginx, Caddy, or Traefik in front with basic auth or OAuth before exposing to a network.

@@ -871,7 +871,7 @@ def verify(body: bytes, secret: str, sig_header: str) -> bool:
                 <tr><td>OCR Language</td><td>English</td><td>Language model used for Tesseract OCR</td></tr>
               </tbody>
             </table>
-            <p>All settings can be changed live via the web UI without restarting. They are persisted to <code>/data/runtime_config.json</code>.</p>
+            <p>All settings can be changed live via the web UI without restarting. They are persisted to <code>/config/runtime_config.json</code>.</p>
           </section>
 
           <section id="therefore">
@@ -1157,7 +1157,7 @@ docker compose build
 docker compose up -d</code></pre>
 
             <h3>Accessing the database</h3>
-            <pre><code>docker exec -it redactor-backend sqlite3 /data/redactor.db
+            <pre><code>docker exec -it redactor-backend sqlite3 /config/redactor.db
 .tables
 SELECT id, filename, status, processing_ms FROM jobs ORDER BY created_at DESC LIMIT 10;</code></pre>
 

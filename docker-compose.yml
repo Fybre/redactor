@@ -8,12 +8,12 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:////data/redactor.db
       - INPUT_DIR=/data/input
       - OUTPUT_DIR=/data/output
       - ORIGINALS_DIR=/data/originals
     volumes:
       - redactor-data:/data
+      - redactor-config:/config
       - /etc/localtime:/etc/localtime:ro
     expose:
       - "8000"
@@ -82,6 +82,8 @@ services:
 
 volumes:
   redactor-data:
+    driver: local
+  redactor-config:
     driver: local
   ollama-data:
     driver: local
