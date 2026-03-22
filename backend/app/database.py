@@ -28,6 +28,7 @@ async def init_db():
             ("completion_callback_headers","JSON"),
             ("completion_callback_body",   "VARCHAR"),
             ("custom_output_dir",          "VARCHAR"),
+            ("detection_strategy_used",    "VARCHAR"),
         ]:
             try:
                 await conn.exec_driver_sql(

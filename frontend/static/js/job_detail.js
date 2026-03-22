@@ -68,6 +68,7 @@ function renderJob(job) {
           ${detail('File', job.filename)}
           ${detail('Job ID', `<span style="font-family:monospace">${job.id}</span>`)}
           ${detail('Redaction Level', levelBadge(job.level))}
+          ${detail('Detection Strategy', job.detection_strategy_used || '<span style="color:var(--muted)">—</span>')}
           ${detail('Output Mode', job.output_mode)}
           ${detail('Source', job.source)}
           ${detail('Pages', job.page_count || '—')}

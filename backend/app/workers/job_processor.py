@@ -143,6 +143,7 @@ async def _run_job(job_id: str) -> None:
             job.entities_found = stats.get("entities_found", {})
             job.completed_at = t_end
             job.processing_ms = processing_ms
+            job.detection_strategy_used = detection_strategy
             await session.commit()
 
         logger.info(
@@ -288,6 +289,7 @@ async def run_detection_job(job_id: str) -> None:
             job.status = JobStatus.PENDING_VALIDATION
             job.page_count = result.get("page_count", 0)
             job.entities_found = result.get("entities_found", {})
+            job.detection_strategy_used = detection_strategy
             await session.commit()
 
         logger.info(f"Detection job {job_id} complete: {len(regions)} regions on {result.get('page_count')} page(s)")

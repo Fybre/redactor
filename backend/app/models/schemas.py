@@ -15,6 +15,7 @@ class JobResponse(BaseModel):
     entities_found: Optional[Dict[str, int]]
     error_message: Optional[str]
     webhook_sent: Optional[bool]
+    detection_strategy_used: Optional[str] = None
     created_at: datetime
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
