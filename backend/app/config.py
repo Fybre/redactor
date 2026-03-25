@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Defaults to empty string; upload.py falls back to request.base_url when not set.
     public_base_url: str = ""
 
+    # Detections below this score are discarded entirely before redaction or review.
+    min_confidence: float = 0.65
+
     # Validation: regions with a Presidio confidence score >= this threshold are
     # automatically pre-approved; lower-confidence regions require manual review.
     auto_approve_threshold: float = 0.85
@@ -66,6 +69,7 @@ _DEFAULT_RUNTIME_CONFIG = {
     "redaction_color": [0, 0, 0],
     "ocr_language": "eng",
     "detection_strategy": "presidio",
+    "min_confidence": settings.min_confidence,
     "auto_approve_threshold": settings.auto_approve_threshold,
     "llm_base_url": "http://ollama:11434/v1",
     "llm_model": "llama3.2:3b",

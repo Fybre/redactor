@@ -76,6 +76,7 @@ def redact_pdf(
     llm_model: str = None,
     llm_api_key: str = None,
     detect_only: bool = False,
+    min_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Redact a text-layer PDF. Returns stats dict with page_count and entities_found.
@@ -102,6 +103,7 @@ def redact_pdf(
                 page_regions = detect_image_page(
                     page, page_num, level, custom_entities, ocr_language,
                     strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+                    min_confidence=min_confidence,
                 )
                 all_regions.extend(page_regions)
                 for r in page_regions:
@@ -110,6 +112,7 @@ def redact_pdf(
                 redact_image_page(
                     page, level, custom_entities, redaction_color, ocr_language, total_entities,
                     strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+                    min_confidence=min_confidence,
                 )
             continue
 
@@ -118,6 +121,8 @@ def redact_pdf(
             full_text, level, custom_entities,
             strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
         )
+        if min_confidence > 0:
+            pii_results = [r for r in pii_results if getattr(r, "score", 1.0) >= min_confidence]
 
         for result in pii_results:
             total_entities[result.entity_type] += 1

@@ -55,6 +55,7 @@ def detect_document(
     llm_base_url: Optional[str] = None,
     llm_model: Optional[str] = None,
     llm_api_key: Optional[str] = None,
+    min_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Detect PII regions without applying redaction. Returns stats + regions list.
@@ -71,12 +72,13 @@ def detect_document(
         return redact_pdf(
             input_path, None, level, custom_entities, (0, 0, 0), ocr_language,
             strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
-            detect_only=True,
+            detect_only=True, min_confidence=min_confidence,
         )
     elif ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
         return detect_image_file(
             input_path, level, custom_entities, ocr_language,
             strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+            min_confidence=min_confidence,
         )
     else:
         raise ValueError(f"Unsupported file type: ext={ext}, mime={mime}")
@@ -116,6 +118,7 @@ def process_document(
     llm_base_url: Optional[str] = None,
     llm_model: Optional[str] = None,
     llm_api_key: Optional[str] = None,
+    min_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Auto-detect document type and route to the correct redactor.
@@ -134,11 +137,13 @@ def process_document(
         return redact_pdf(
             input_path, output_path, level, custom_entities, redaction_color, ocr_language,
             strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+            min_confidence=min_confidence,
         )
     elif ext in IMAGE_EXTENSIONS or mime.startswith("image/"):
         return redact_image_file(
             input_path, output_path, level, custom_entities, redaction_color, ocr_language,
             strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+            min_confidence=min_confidence,
         )
     else:
         raise ValueError(f"Unsupported file type: ext={ext}, mime={mime}")

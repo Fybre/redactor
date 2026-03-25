@@ -80,6 +80,7 @@ def redact_image_file(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    min_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     """Redact a standalone image file (PNG/JPG/TIFF)."""
     img = Image.open(input_path).convert("RGB")
@@ -88,6 +89,7 @@ def redact_image_file(
     redacted = _redact_pil_image(
         img, level, custom_entities, redaction_color, ocr_language, entities_found,
         strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+        min_confidence=min_confidence,
     )
     redacted.save(output_path)
 
@@ -103,12 +105,14 @@ def detect_image_file(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    min_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     """Detect PII regions in a standalone image file without applying redaction."""
     img = Image.open(input_path).convert("RGB")
     regions = _detect_pil_image(
         img, 0, level, custom_entities, ocr_language,
         strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+        min_confidence=min_confidence,
     )
     entities_found: Dict[str, int] = {}
     for r in regions:
@@ -145,6 +149,7 @@ def _detect_pil_image(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    min_confidence: float = 0.0,
 ) -> List[dict]:
     """Run OCR + Presidio on a PIL Image and return normalised region dicts (no drawing)."""
     try:
@@ -161,6 +166,8 @@ def _detect_pil_image(
         full_text, level, custom_entities,
         strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
     )
+    if min_confidence > 0:
+        pii_results = [r for r in pii_results if getattr(r, "score", 1.0) >= min_confidence]
 
     regions = []
     for result in pii_results:
@@ -192,6 +199,7 @@ def _redact_pil_image(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    min_confidence: float = 0.0,
 ) -> Image.Image:
     """Apply OCR-based PII redaction to a PIL Image. Returns modified copy."""
     try:
@@ -208,6 +216,8 @@ def _redact_pil_image(
         full_text, level, custom_entities,
         strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
     )
+    if min_confidence > 0:
+        pii_results = [r for r in pii_results if getattr(r, "score", 1.0) >= min_confidence]
     if not pii_results:
         return img
 
@@ -233,6 +243,7 @@ def redact_image_page(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    min_confidence: float = 0.0,
 ) -> None:
     """
     Redact a PyMuPDF page that has no text layer (scanned).
@@ -247,6 +258,7 @@ def redact_image_page(
     redacted = _redact_pil_image(
         img, level, custom_entities, redaction_color, ocr_language, entities_counter,
         strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+        min_confidence=min_confidence,
     )
 
     # Convert back to fitz Pixmap and replace page content
@@ -269,6 +281,7 @@ def detect_image_page(
     llm_base_url: str = None,
     llm_model: str = None,
     llm_api_key: str = None,
+    min_confidence: float = 0.0,
 ) -> List[dict]:
     """
     Detect PII regions on a scanned PDF page (no text layer) without applying redaction.
@@ -281,6 +294,7 @@ def detect_image_page(
     return _detect_pil_image(
         img, page_num, level, custom_entities, ocr_language,
         strategy=strategy, llm_base_url=llm_base_url, llm_model=llm_model, llm_api_key=llm_api_key,
+        min_confidence=min_confidence,
     )
 
 

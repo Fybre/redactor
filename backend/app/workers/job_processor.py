@@ -107,6 +107,7 @@ async def _run_job(job_id: str) -> None:
         llm_base_url = config.get("llm_base_url", "http://ollama:11434/v1")
         llm_model = config.get("llm_model", "llama3.2:3b")
         llm_api_key = config.get("llm_api_key", "ollama")
+        min_confidence = float(config.get("min_confidence", 0.65))
 
         output_path = get_output_path(job_id, job_filename, job.custom_output_dir or None)
 
@@ -131,6 +132,7 @@ async def _run_job(job_id: str) -> None:
             llm_base_url=llm_base_url,
             llm_model=llm_model,
             llm_api_key=llm_api_key,
+            min_confidence=min_confidence,
         ))
 
         t_end = datetime.now(timezone.utc)
@@ -259,6 +261,7 @@ async def run_detection_job(job_id: str) -> None:
         llm_base_url = config.get("llm_base_url", "http://ollama:11434/v1")
         llm_model = config.get("llm_model", "llama3.2:3b")
         llm_api_key = config.get("llm_api_key", "ollama")
+        min_confidence = float(config.get("min_confidence", 0.65))
         auto_approve_threshold = float(config.get("auto_approve_threshold", 0.85))
 
         loop = asyncio.get_event_loop()
@@ -272,6 +275,7 @@ async def run_detection_job(job_id: str) -> None:
             llm_base_url=llm_base_url,
             llm_model=llm_model,
             llm_api_key=llm_api_key,
+            min_confidence=min_confidence,
         ))
 
         regions = result.get("regions", [])

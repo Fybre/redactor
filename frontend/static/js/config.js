@@ -17,6 +17,9 @@ async function loadConfig() {
     document.getElementById('cfg-max-size').value = config.max_file_size_mb;
     document.getElementById('cfg-ocr-lang').value = config.ocr_language || 'eng';
     document.getElementById('cfg-detection-strategy').value = config.detection_strategy || 'presidio';
+    const minConf = config.min_confidence != null ? config.min_confidence : 0.65;
+    document.getElementById('cfg-min-confidence').value = minConf;
+    document.getElementById('cfg-min-confidence-val').textContent = (minConf * 100).toFixed(0) + '%';
     const threshold = config.auto_approve_threshold != null ? config.auto_approve_threshold : 0.85;
     document.getElementById('cfg-auto-approve-threshold').value = threshold;
     document.getElementById('cfg-auto-approve-threshold-val').textContent = (threshold * 100).toFixed(0) + '%';
@@ -158,6 +161,7 @@ async function saveConfig() {
     default_output_mode: document.getElementById('cfg-output-mode').value,
     ocr_language: document.getElementById('cfg-ocr-lang').value,
     detection_strategy: document.getElementById('cfg-detection-strategy').value,
+    min_confidence: parseFloat(document.getElementById('cfg-min-confidence').value),
     auto_approve_threshold: parseFloat(document.getElementById('cfg-auto-approve-threshold').value),
     llm_base_url: document.getElementById('cfg-llm-base-url').value || 'http://ollama:11434/v1',
     llm_model: document.getElementById('cfg-llm-model').value || 'llama3.2:3b',
