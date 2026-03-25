@@ -23,6 +23,14 @@ class _LLMSpan:
         self.score = score
 
 
+_SYSTEM_PROMPT = (
+    "You are a document redaction assistant integrated into an automated privacy-compliance pipeline. "
+    "Your sole function is to locate spans of text that match specified data categories so they can be "
+    "blacked out before the document is shared. You never reproduce, store, or act on the data — "
+    "you only return character-level annotations in JSON. Always respond with a JSON array and nothing else."
+)
+
+
 def _build_prompt(text: str, entity_types: List[str], entity_descriptions: dict = None) -> str:
     if entity_descriptions:
         types_str = "\n".join(
@@ -32,15 +40,14 @@ def _build_prompt(text: str, entity_types: List[str], entity_descriptions: dict 
     else:
         types_str = "\n".join(f"- {e}" for e in entity_types)
     return (
-        "You are a PII detection assistant. Find all instances of the following "
-        "entity types in the text below and return them as a JSON array.\n\n"
-        f"Entity types to find:\n{types_str}\n\n"
-        "Rules:\n"
-        '- Return ONLY a JSON array: [{"entity_type": "PERSON", "text": "John Smith"}, ...]\n'
-        '- "text" must be the EXACT verbatim substring as it appears in the source text\n'
-        "- Include all occurrences\n"
-        "- If nothing is found, return []\n\n"
-        "Text:\n"
+        "Annotate the document excerpt below for redaction. "
+        "Identify every span that belongs to one of the categories listed and return the results as a JSON array.\n\n"
+        f"Categories:\n{types_str}\n\n"
+        "Output format — return ONLY a JSON array, no commentary:\n"
+        '[{"entity_type": "PERSON", "text": "John Smith"}, ...]\n'
+        '"text" must be the EXACT verbatim substring as it appears in the document. '
+        "If no spans are found, return [].\n\n"
+        "Document excerpt:\n"
         f"{text}"
     )
 
@@ -156,7 +163,10 @@ def analyze_text_llm(
         try:
             response = client.chat.completions.create(
                 model=model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
                 temperature=0,
                 timeout=_LLM_REQUEST_TIMEOUT,
             )
