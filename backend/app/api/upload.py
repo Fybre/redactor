@@ -362,46 +362,33 @@ async def upload_document_sync(
         db.add(job)
         await db.commit()
 
-        await run_detection_job(job_id)
+        # Run detection in the background — return validation_url immediately so
+        # the caller (Therefore, etc.) is not blocked waiting for detection to finish.
+        # The caller should poll GET /api/v1/jobs/{job_id} and wait for status to
+        # change from "detecting" to "pending_validation" before sending the reviewer URL.
+        import asyncio as _asyncio
+        _bypass = auto_export_if_clean and str(auto_export_if_clean).lower() in ("true", "1", "yes")
 
-        await db.refresh(job)
-        if job.status == JobStatus.FAILED:
-            raise HTTPException(status_code=500, detail=job.error_message or "Detection failed")
+        async def _detect_then_maybe_apply():
+            await run_detection_job(job_id)
+            if _bypass:
+                from app.workers.job_processor import run_validation_job
+                from app.database import AsyncSessionLocal
+                from sqlalchemy import select as _sel
+                from app.models.region import RedactionRegion as _RR
+                async with AsyncSessionLocal() as _s:
+                    result = await _s.execute(_sel(_RR).where(_RR.job_id == job_id))
+                    pending = sum(1 for r in result.scalars().all() if r.status == "pending")
+                if pending == 0:
+                    await run_validation_job(job_id)
 
-        from sqlalchemy import select as _select
-        from app.models.region import RedactionRegion
-        region_result = await db.execute(
-            _select(RedactionRegion).where(RedactionRegion.job_id == job_id)
-        )
-        regions = region_result.scalars().all()
-        region_count = len(regions)
-        auto_approved_count = sum(1 for r in regions if r.status == "auto_approved")
-        pending_count = sum(1 for r in regions if r.status == "pending")
-
-        # If all regions are auto-approved and the caller requested bypass, apply immediately
-        bypass = auto_export_if_clean and str(auto_export_if_clean).lower() in ("true", "1", "yes")
-        if bypass and pending_count == 0:
-            from app.workers.job_processor import run_validation_job
-            await run_validation_job(job_id)
-            await db.refresh(job)
-            return {
-                "status": "completed",
-                "job_id": job_id,
-                "region_count": region_count,
-                "auto_approved_count": auto_approved_count,
-                "pending_count": 0,
-                "bypassed_validation": True,
-            }
+        _asyncio.create_task(_detect_then_maybe_apply())
 
         return {
             "status": "pending_validation",
             "job_id": job_id,
-            "validation_url": job.validation_url,
+            "validation_url": validation_url,
             "validation_path": f"/validate.html?id={job_id}",
-            "region_count": region_count,
-            "auto_approved_count": auto_approved_count,
-            "pending_count": pending_count,
-            "bypassed_validation": False,
         }
 
     # ── Standard sync mode ─────────────────────────────────────────────────────
