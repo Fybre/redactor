@@ -146,6 +146,10 @@ async def _run_job(job_id: str) -> None:
             job.detection_strategy_used = detection_strategy
             await session.commit()
 
+        # Input was a staging copy — delete it now that processing is done
+        # (original_path holds the retained copy if retain_originals is set)
+        safe_delete(job_input_path)
+
         logger.info(
             f"Job {job_id} completed in {processing_ms}ms | "
             f"pages={stats.get('page_count')} entities={sum(stats.get('entities_found', {}).values())}"
@@ -386,6 +390,8 @@ async def run_validation_job(job_id: str) -> None:
             job.completed_at = t_end
             job.processing_ms = processing_ms
             await session.commit()
+
+        safe_delete(job_input_path)
 
         logger.info(f"Validation apply job {job_id} completed in {processing_ms}ms | regions={len(regions_data)}")
 

@@ -36,17 +36,20 @@ async def lifespan(app: FastAPI):
 
     from app.workers.job_processor import start_worker
     from app.workers.folder_poller import start_poller
+    from app.workers.cleanup import start_cleanup
 
     worker_task = asyncio.create_task(start_worker())
     poller_task = asyncio.create_task(start_poller())
+    cleanup_task = asyncio.create_task(start_cleanup())
 
     logger.info("Redactor service ready.")
     yield
 
     worker_task.cancel()
     poller_task.cancel()
+    cleanup_task.cancel()
     try:
-        await asyncio.gather(worker_task, poller_task, return_exceptions=True)
+        await asyncio.gather(worker_task, poller_task, cleanup_task, return_exceptions=True)
     except Exception:
         pass
     logger.info("Redactor service stopped.")
