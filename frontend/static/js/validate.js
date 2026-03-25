@@ -38,7 +38,7 @@ async function init() {
     document.getElementById('loading-msg').textContent = 'No job ID provided.';
     return;
   }
-  showLoading('Loading document…');
+  showLoading('Loading…');
   try {
     job = await api.get(`/jobs/${JOB_ID}`);
     if (!job) throw new Error('Job not found');
@@ -47,6 +47,7 @@ async function init() {
     // Poll until status leaves "detecting".
     if (job.status === 'detecting') {
       showLoading('Detection in progress — please wait…');
+
       while (job.status === 'detecting') {
         await new Promise(r => setTimeout(r, 3000));
         job = await api.get(`/jobs/${JOB_ID}`);
