@@ -140,7 +140,10 @@ async def start_poller():
                                 logger.warning(f"Could not delete hidden file {entry}: {e}")
                             continue
                         if entry.suffix.lower() in SUPPORTED_EXTENSIONS:
-                            await _submit_file(str(entry), profile=profile, custom_output_dir=output_path)
+                            try:
+                                await _submit_file(str(entry), profile=profile, custom_output_dir=output_path)
+                            except Exception as e:
+                                logger.error(f"Failed to submit polled file {entry}: {e}")
 
         except asyncio.CancelledError:
             break
