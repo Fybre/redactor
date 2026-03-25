@@ -3,6 +3,7 @@ Async worker that picks queued jobs from the database and processes them.
 Runs as a background asyncio task within the FastAPI process.
 """
 import asyncio
+import functools
 import logging
 import os
 import shutil
@@ -117,7 +118,9 @@ async def _run_job(job_id: str) -> None:
 
         t_start = datetime.now(timezone.utc)
 
-        stats = process_document(
+        loop = asyncio.get_event_loop()
+        stats = await loop.run_in_executor(None, functools.partial(
+            process_document,
             input_path=job_input_path,
             output_path=output_path,
             level=job_level,
@@ -128,7 +131,7 @@ async def _run_job(job_id: str) -> None:
             llm_base_url=llm_base_url,
             llm_model=llm_model,
             llm_api_key=llm_api_key,
-        )
+        ))
 
         t_end = datetime.now(timezone.utc)
         processing_ms = int((t_end - t_start).total_seconds() * 1000)
@@ -258,7 +261,9 @@ async def run_detection_job(job_id: str) -> None:
         llm_api_key = config.get("llm_api_key", "ollama")
         auto_approve_threshold = float(config.get("auto_approve_threshold", 0.85))
 
-        result = detect_document(
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, functools.partial(
+            detect_document,
             input_path=job_input_path,
             level=job_level,
             custom_entities=job_custom_entities,
@@ -267,7 +272,7 @@ async def run_detection_job(job_id: str) -> None:
             llm_base_url=llm_base_url,
             llm_model=llm_model,
             llm_api_key=llm_api_key,
-        )
+        ))
 
         regions = result.get("regions", [])
 
@@ -370,12 +375,14 @@ async def run_validation_job(job_id: str) -> None:
 
         t_start = datetime.now(timezone.utc)
 
-        stats = apply_document_regions(
+        loop = asyncio.get_event_loop()
+        stats = await loop.run_in_executor(None, functools.partial(
+            apply_document_regions,
             input_path=job_input_path,
             output_path=output_path,
             regions=regions_data,
             redaction_color=redaction_color,
-        )
+        ))
 
         t_end = datetime.now(timezone.utc)
         processing_ms = int((t_end - t_start).total_seconds() * 1000)
