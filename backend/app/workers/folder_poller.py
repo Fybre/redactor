@@ -82,8 +82,8 @@ async def _submit_file(
     job_id = str(uuid.uuid4())
 
     # Move to a stable temp location under originals so the input dir can be cleared
-    stable_path = str(Path(settings.originals_dir) / f"polled_{job_id[:8]}_{filename}")
-    os.makedirs(settings.originals_dir, exist_ok=True)
+    stable_path = str(Path(settings.temp_dir) / f"polled_{job_id[:8]}_{filename}")
+    os.makedirs(settings.temp_dir, exist_ok=True)
     shutil.copy2(file_path, stable_path)
 
     async with AsyncSessionLocal() as session:
