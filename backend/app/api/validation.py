@@ -171,6 +171,15 @@ async def apply_validation(job_id: str, db: AsyncSession = Depends(get_db)):
             detail=f"Job status is {job.status}, expected pending_validation",
         )
 
+    # Promote any remaining pending regions to approved — Save & Apply means
+    # "redact everything I haven't explicitly rejected".
+    pending_result = await db.execute(
+        select(RedactionRegion)
+        .where(RedactionRegion.job_id == job_id, RedactionRegion.status == "pending")
+    )
+    for region in pending_result.scalars().all():
+        region.status = "approved"
+
     job.status = JobStatus.PROCESSING
     await db.commit()
 
