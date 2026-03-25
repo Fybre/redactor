@@ -4,6 +4,7 @@ Returns span objects compatible with Presidio RecognizerResult interface.
 """
 import json
 import logging
+import re
 from typing import List
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,7 @@ def analyze_text_llm(
 
     spans: List[_LLMSpan] = []
     chunks = _chunk_text(text)
+    logger.info(f"LLM detection: model={model} base_url={base_url} chunks={len(chunks)} entity_types={entity_types}")
 
     for chunk_text, chunk_offset in chunks:
         prompt = _build_prompt(chunk_text, entity_types, entity_descriptions)
@@ -198,6 +200,13 @@ def analyze_text_llm(
             # Find every occurrence of this string in the chunk
             occurrences = _find_all_occurrences(chunk_text, match_text, chunk_offset)
             for start, end in occurrences:
+                # Post-validate CVV: require a CVV label within 60 chars before the match
+                if entity_type == "CVV":
+                    local_start = start - chunk_offset
+                    context = chunk_text[max(0, local_start - 60):local_start]
+                    if not re.search(r"\b(CVV2?|CVC2?|CCV|Security\s+Code)\b", context, re.IGNORECASE):
+                        logger.debug(f"LLM CVV rejected (no label in context): {match_text!r}")
+                        continue
                 spans.append(_LLMSpan(start=start, end=end, entity_type=entity_type))
 
     return spans
