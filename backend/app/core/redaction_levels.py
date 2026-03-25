@@ -56,7 +56,7 @@ ENTITY_LEVELS = {
 # Human-readable descriptions for the UI
 ENTITY_DESCRIPTIONS = {
     "CREDIT_CARD": "Credit card numbers",
-    "CVV": "Card security code — 3-4 digit number appearing immediately after a label like 'CVV:', 'CVC:', 'CVV2:', or 'Security Code:', typically found near a credit card number and expiry date (use with Credit Card — LLM only)",
+    "CVV": "Card security code — a 3-4 digit number that appears immediately after an explicit label such as 'CVV:', 'CVC:', 'CVV2:', or 'Security Code:'. Must be directly adjacent to that label and typically appears alongside a credit card number and expiry date. Do NOT flag standalone numbers, street numbers, postal codes, years, phone number fragments, or any number not directly preceded by one of those labels.",
     "CRYPTO": "Cryptocurrency wallet addresses",
     "IBAN_CODE": "IBAN bank account numbers",
     "US_SSN": "US Social Security Numbers",
