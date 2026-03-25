@@ -12,7 +12,6 @@ from pathlib import Path
 from app.config import settings, get_runtime_value
 from app.database import AsyncSessionLocal
 from app.models.job import Job, JobStatus, RedactionLevel
-from app.utils.file_utils import compute_sha256
 
 _BUILTIN_LEVELS = {l.value for l in RedactionLevel if l != RedactionLevel.CUSTOM}
 
@@ -31,8 +30,24 @@ async def _hash_known_to_db(file_hash: str) -> bool:
         return result.scalar_one_or_none() is not None
 
 
+def _compute_folder_hash(file_path: str, folder_path: str) -> str:
+    """SHA-256 of file content salted with the source folder path.
+
+    This means the same file dropped into two different watched folders gets
+    two distinct hashes and is processed independently by each folder.
+    """
+    import hashlib
+    h = hashlib.sha256()
+    h.update(str(folder_path).encode())
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 async def _submit_file(
     file_path: str,
+    folder_path: str,
     profile: str = None,
     custom_output_dir: str = None,
 ) -> None:
@@ -58,7 +73,7 @@ async def _submit_file(
                 logger.warning(f"Watched folder profile '{profile}' not found — using default level")
                 profile = None
 
-    file_hash = compute_sha256(file_path)
+    file_hash = _compute_folder_hash(file_path, folder_path)
     if await _hash_known_to_db(file_hash):
         logger.debug(f"Skipping already-processed file: {file_path}")
         return
@@ -141,7 +156,7 @@ async def start_poller():
                             continue
                         if entry.suffix.lower() in SUPPORTED_EXTENSIONS:
                             try:
-                                await _submit_file(str(entry), profile=profile, custom_output_dir=output_path)
+                                await _submit_file(str(entry), folder_path=str(folder_path), profile=profile, custom_output_dir=output_path)
                             except Exception as e:
                                 logger.error(f"Failed to submit polled file {entry}: {e}")
 
