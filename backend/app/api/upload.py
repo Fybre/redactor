@@ -133,8 +133,16 @@ async def _parse_request_params(
         parsed_webhook_extra = {**(parsed_webhook_extra or {}), **prefix_extra}
 
     valid_levels = {e.value for e in RedactionLevel}
+    config = load_runtime_config()
+    profiles = config.get("profiles", {})
+
+    # Allow level to be a profile name — resolve it before enum validation
+    if level not in valid_levels and level in profiles:
+        profile_name = level
+        level = "custom"
+
     if level not in valid_levels:
-        raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(valid_levels)}")
+        raise HTTPException(status_code=400, detail=f"Invalid level. Choose from: {', '.join(sorted(valid_levels))}")
 
     parsed_entities = None
     if level == "custom" or custom_entities:
@@ -144,8 +152,6 @@ async def _parse_request_params(
             parsed_entities = _parse_json_field(custom_entities, "custom_entities", list) or []
 
     if profile_name:
-        config = load_runtime_config()
-        profiles = config.get("profiles", {})
         if profile_name not in profiles:
             raise HTTPException(status_code=400, detail=f"Profile '{profile_name}' not found")
         parsed_entities = profiles[profile_name].get("entities", [])
