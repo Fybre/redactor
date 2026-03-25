@@ -46,6 +46,8 @@ def _build_prompt(text: str, entity_types: List[str], entity_descriptions: dict 
         "Output format — return ONLY a JSON array, no commentary:\n"
         '[{"entity_type": "PERSON", "text": "John Smith"}, ...]\n'
         '"text" must be the EXACT verbatim substring as it appears in the document. '
+        "Only annotate a span if you are confident it matches the category description — "
+        "do not match based on superficial pattern alone (e.g. do not flag a street number as a CVV just because it is 3 digits). "
         "If no spans are found, return [].\n\n"
         "Document excerpt:\n"
         f"{text}"
