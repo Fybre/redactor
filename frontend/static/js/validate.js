@@ -42,6 +42,27 @@ async function init() {
   try {
     job = await api.get(`/jobs/${JOB_ID}`);
     if (!job) throw new Error('Job not found');
+
+    // Detection may still be running if the URL was opened immediately after submission.
+    // Poll until status leaves "detecting".
+    if (job.status === 'detecting') {
+      showLoading('Detection in progress — please wait…');
+      while (job.status === 'detecting') {
+        await new Promise(r => setTimeout(r, 3000));
+        job = await api.get(`/jobs/${JOB_ID}`);
+      }
+    }
+
+    if (job.status === 'failed') {
+      document.getElementById('loading-msg').textContent = `Detection failed: ${job.error_message || 'unknown error'}`;
+      return;
+    }
+    if (job.status !== 'pending_validation') {
+      document.getElementById('loading-msg').textContent = `Job is not awaiting validation (status: ${job.status}).`;
+      return;
+    }
+
+    showLoading('Loading regions…');
     pageCount = job.page_count || 1;
 
     const data = await api.get(`/jobs/${JOB_ID}/regions`);
